@@ -564,5 +564,5 @@ func (ta *Topological) updateFrontiers() (ids.Set, ids.Set, error) {
 		accepted.Union(acc)
 		rejected.Union(rej)
 	}
-	return nil, nil, nil
+	return accepted, rejected, nil
 }
