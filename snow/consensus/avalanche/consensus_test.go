@@ -203,8 +203,11 @@ func AddTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx0},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
 		t.Fatalf("A non-empty avalanche instance is finalized")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx0.IDV}, avl.Preferences().List()) {
@@ -227,20 +230,29 @@ func AddTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx1},
 	}
 
-	if err := avl.Add(vtx1); err != nil {
+	if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
 		t.Fatalf("A non-empty avalanche instance is finalized")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx0.IDV}, avl.Preferences().List()) {
 		t.Fatalf("Initial frontier failed to be set")
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
 		t.Fatalf("A non-empty avalanche instance is finalized")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx0.IDV}, avl.Preferences().List()) {
 		t.Fatalf("Initial frontier failed to be set")
-	} else if err := avl.Add(vts[0]); err != nil {
+	} else if acc, rej, err := avl.Add(vts[0]); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
 		t.Fatalf("A non-empty avalanche instance is finalized")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx0.IDV}, avl.Preferences().List()) {
@@ -301,8 +313,11 @@ func VertexIssuedTest(t *testing.T, factory Factory) {
 
 	if avl.VertexIssued(vtx) {
 		t.Fatalf("Vertex reported as issued")
-	} else if err := avl.Add(vtx); err != nil {
+	} else if acc, rej, err := avl.Add(vtx); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if !avl.VertexIssued(vtx) {
 		t.Fatalf("Vertex reported as not issued")
 	}
@@ -362,8 +377,11 @@ func TxIssuedTest(t *testing.T, factory Factory) {
 		TxsV:    []snowstorm.Tx{tx1},
 	}
 
-	if err := avl.Add(vtx); err != nil {
+	if acc, rej, err := avl.Add(vtx); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if !avl.TxIssued(tx1) {
 		t.Fatalf("Tx reported as not issued")
 	}
@@ -454,14 +472,20 @@ func VirtuousTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx2},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if virtuous := avl.Virtuous(); virtuous.Len() != 1 {
 		t.Fatalf("Wrong number of virtuous.")
 	} else if !virtuous.Contains(vtx0.IDV) {
 		t.Fatalf("Wrong virtuous")
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if virtuous := avl.Virtuous(); virtuous.Len() != 1 {
 		t.Fatalf("Wrong number of virtuous.")
 	} else if !virtuous.Contains(vtx0.IDV) {
@@ -472,24 +496,33 @@ func VirtuousTest(t *testing.T, factory Factory) {
 	votes.Add(0, vtx1.ID())
 	votes.Add(1, vtx1.ID())
 
-	if err := avl.RecordPoll(votes); err != nil {
+	if acc, rej, err := avl.RecordPoll(votes); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if virtuous := avl.Virtuous(); virtuous.Len() != 2 {
 		t.Fatalf("Wrong number of virtuous.")
 	} else if !virtuous.Contains(vts[0].ID()) {
 		t.Fatalf("Wrong virtuous")
 	} else if !virtuous.Contains(vts[1].ID()) {
 		t.Fatalf("Wrong virtuous")
-	} else if err := avl.Add(vtx2); err != nil {
+	} else if acc, rej, err := avl.Add(vtx2); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if virtuous := avl.Virtuous(); virtuous.Len() != 2 {
 		t.Fatalf("Wrong number of virtuous.")
 	} else if !virtuous.Contains(vts[0].ID()) {
 		t.Fatalf("Wrong virtuous")
 	} else if !virtuous.Contains(vts[1].ID()) {
 		t.Fatalf("Wrong virtuous")
-	} else if err := avl.RecordPoll(votes); err != nil {
+	} else if acc, rej, err := avl.RecordPoll(votes); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if virtuous := avl.Virtuous(); virtuous.Len() != 2 {
 		t.Fatalf("Wrong number of virtuous.")
 	} else if !virtuous.Contains(vts[0].ID()) {
@@ -571,20 +604,29 @@ func VirtuousSkippedUpdateTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx1},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if virtuous := avl.Virtuous(); virtuous.Len() != 1 {
 		t.Fatalf("Wrong number of virtuous.")
 	} else if !virtuous.Contains(vtx0.IDV) {
 		t.Fatalf("Wrong virtuous")
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if virtuous := avl.Virtuous(); virtuous.Len() != 1 {
 		t.Fatalf("Wrong number of virtuous.")
 	} else if !virtuous.Contains(vtx0.IDV) {
 		t.Fatalf("Wrong virtuous")
-	} else if err := avl.RecordPoll(ids.UniqueBag{}); err != nil {
+	} else if acc, rej, err := avl.RecordPoll(ids.UniqueBag{}); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if virtuous := avl.Virtuous(); virtuous.Len() != 1 {
 		t.Fatalf("Wrong number of virtuous.")
 	} else if !virtuous.Contains(vtx0.IDV) {
@@ -637,12 +679,14 @@ func VotingTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx0},
 	}
 
+	// tx0 and tx1 conflict
 	tx1 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
 		StatusV: choices.Processing,
 	}}
 	tx1.InputIDsV.Add(utxos[0])
 
+	//vtx0 and vtx1 conflict
 	vtx1 := &TestVertex{
 		TestDecidable: choices.TestDecidable{
 			IDV:     ids.GenerateTestID(),
@@ -653,23 +697,37 @@ func VotingTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx1},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	// Add both vertices to consensus
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 
+	// Record polls
 	sm := ids.UniqueBag{}
 	sm.Add(0, vtx1.IDV)
 	sm.Add(1, vtx1.IDV)
-	if err := avl.RecordPoll(sm); err != nil {
+	if acc, rej, err := avl.RecordPoll(sm); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
 		t.Fatalf("An avalanche instance finalized too early")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx1.IDV}, avl.Preferences().List()) {
 		t.Fatalf("Initial frontier failed to be set")
-	} else if err := avl.RecordPoll(sm); err != nil {
+	} else if acc, rej, err := avl.RecordPoll(sm); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 1 || rej.Len() != 1 { // acceped vtx1, rejected vtx0
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if !avl.Finalized() {
 		t.Fatalf("An avalanche instance finalized too late")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx1.IDV}, avl.Preferences().List()) {
@@ -745,10 +803,16 @@ func IgnoreInvalidVotingTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx1},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 
 	sm := ids.UniqueBag{}
@@ -759,8 +823,11 @@ func IgnoreInvalidVotingTest(t *testing.T, factory Factory) {
 	sm.Add(2, vtx0.IDV)
 	sm.Add(2, vtx1.IDV)
 
-	if err := avl.RecordPoll(sm); err != nil {
+	if acc, rej, err := avl.RecordPoll(sm); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
 		t.Fatalf("An avalanche instance finalized too early")
 	}
@@ -795,12 +862,20 @@ func TransitiveVotingTest(t *testing.T, factory Factory) {
 
 	avl.Initialize(snow.DefaultContextTest(), params, vts)
 
+	// tx0 and tx1 don't conflict
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
 		StatusV: choices.Processing,
 	}}
 	tx0.InputIDsV.Add(utxos[0])
 
+	tx1 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
+		IDV:     ids.GenerateTestID(),
+		StatusV: choices.Processing,
+	}}
+	tx1.InputIDsV.Add(utxos[1])
+
+	// Parent of vtx1
 	vtx0 := &TestVertex{
 		TestDecidable: choices.TestDecidable{
 			IDV:     ids.GenerateTestID(),
@@ -810,12 +885,6 @@ func TransitiveVotingTest(t *testing.T, factory Factory) {
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx0},
 	}
-
-	tx1 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
-		IDV:     ids.GenerateTestID(),
-		StatusV: choices.Processing,
-	}}
-	tx1.InputIDsV.Add(utxos[1])
 
 	vtx1 := &TestVertex{
 		TestDecidable: choices.TestDecidable{
@@ -837,19 +906,31 @@ func TransitiveVotingTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx1},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx2); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx2); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 
 	sm1 := ids.UniqueBag{}
 	sm1.Add(0, vtx0.IDV)
 	sm1.Add(1, vtx2.IDV)
-	if err := avl.RecordPoll(sm1); err != nil {
+	if acc, rej, err := avl.RecordPoll(sm1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 1 || rej.Len() != 0 { // accept vtx
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
 		t.Fatalf("An avalanche instance finalized too early")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx2.IDV}, avl.Preferences().List()) {
@@ -861,8 +942,11 @@ func TransitiveVotingTest(t *testing.T, factory Factory) {
 	sm2 := ids.UniqueBag{}
 	sm2.Add(0, vtx2.IDV)
 	sm2.Add(1, vtx2.IDV)
-	if err := avl.RecordPoll(sm2); err != nil {
+	if acc, rej, err := avl.RecordPoll(sm2); err != nil { // accept vtx2
 		t.Fatal(err)
+	} else if acc.Len() != 2 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if !avl.Finalized() {
 		t.Fatalf("An avalanche instance finalized too late")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx2.IDV}, avl.Preferences().List()) {
@@ -871,6 +955,10 @@ func TransitiveVotingTest(t *testing.T, factory Factory) {
 		t.Fatalf("Tx should have been accepted")
 	} else if tx1.Status() != choices.Accepted {
 		t.Fatalf("Tx should have been accepted")
+	} else if vtx1.Status() != choices.Accepted {
+		t.Fatalf("Vtx should have been accepted")
+	} else if vtx2.Status() != choices.Accepted {
+		t.Fatalf("Vtx should have been accepted")
 	}
 }
 
@@ -929,23 +1017,34 @@ func SplitVotingTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx0},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 
 	sm1 := ids.UniqueBag{}
 	sm1.Add(0, vtx0.IDV) // peer 0 votes for the tx though vtx0
 	sm1.Add(1, vtx1.IDV) // peer 1 votes for the tx though vtx1
-	if err := avl.RecordPoll(sm1); err != nil {
+	if acc, rej, err := avl.RecordPoll(sm1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 2 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			2, 0, acc.Len(), rej.Len())
 	} else if !avl.Finalized() {
 		t.Fatalf("An avalanche instance finalized too late")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx0.IDV, vtx1.IDV}, avl.Preferences().List()) {
 		t.Fatalf("Initial frontier failed to be set")
 	} else if tx0.Status() != choices.Accepted {
 		t.Fatalf("Tx should have been accepted")
+	} else if vtx0.Status() != choices.Accepted || vtx1.Status() != choices.Accepted {
+		t.Fatal("should be accepted")
 	}
 }
 
@@ -978,12 +1077,20 @@ func TransitiveRejectionTest(t *testing.T, factory Factory) {
 
 	avl.Initialize(snow.DefaultContextTest(), params, vts)
 
+	// tx0 and tx1 conflict
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
 		StatusV: choices.Processing,
 	}}
 	tx0.InputIDsV.Add(utxos[0])
 
+	tx1 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
+		IDV:     ids.GenerateTestID(),
+		StatusV: choices.Processing,
+	}}
+	tx1.InputIDsV.Add(utxos[0])
+
+	// vtx0 and vtx1 conflict
 	vtx0 := &TestVertex{
 		TestDecidable: choices.TestDecidable{
 			IDV:     ids.GenerateTestID(),
@@ -993,12 +1100,6 @@ func TransitiveRejectionTest(t *testing.T, factory Factory) {
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx0},
 	}
-
-	tx1 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
-		IDV:     ids.GenerateTestID(),
-		StatusV: choices.Processing,
-	}}
-	tx1.InputIDsV.Add(utxos[0])
 
 	vtx1 := &TestVertex{
 		TestDecidable: choices.TestDecidable{
@@ -1026,25 +1127,40 @@ func TransitiveRejectionTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx2},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx2); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx2); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 
 	sm := ids.UniqueBag{}
 	sm.Add(0, vtx1.IDV)
 	sm.Add(1, vtx1.IDV)
-	if err := avl.RecordPoll(sm); err != nil {
+	if acc, rej, err := avl.RecordPoll(sm); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
 		t.Fatalf("An avalanche instance finalized too early")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx1.IDV}, avl.Preferences().List()) {
 		t.Fatalf("Initial frontier failed to be set")
-	} else if err := avl.RecordPoll(sm); err != nil {
+	} else if acc, rej, err := avl.RecordPoll(sm); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 1 || rej.Len() != 2 { // vtx1 accetped, vtx0 and vtx2 rejected
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			1, 2, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
 		t.Fatalf("An avalanche instance finalized too early")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx1.IDV}, avl.Preferences().List()) {
@@ -1055,8 +1171,11 @@ func TransitiveRejectionTest(t *testing.T, factory Factory) {
 		t.Fatalf("Tx should have been accepted")
 	} else if tx2.Status() != choices.Processing {
 		t.Fatalf("Tx should not have been decided")
-	} else if err := avl.RecordPoll(sm); err != nil {
+	} else if acc, rej, err := avl.RecordPoll(sm); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
 		t.Fatalf("An avalanche instance finalized too early")
 	} else if !ids.UnsortedEquals([]ids.ID{vtx1.IDV}, avl.Preferences().List()) {
@@ -1143,14 +1262,20 @@ func IsVirtuousTest(t *testing.T, factory Factory) {
 		t.Fatalf("Should be virtuous.")
 	} else if !avl.IsVirtuous(tx1) {
 		t.Fatalf("Should be virtuous.")
-	} else if err := avl.Add(vtx0); err != nil {
+	} else if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if !avl.IsVirtuous(tx0) {
 		t.Fatalf("Should be virtuous.")
 	} else if avl.IsVirtuous(tx1) {
 		t.Fatalf("Should not be virtuous.")
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.IsVirtuous(tx0) {
 		t.Fatalf("Should not be virtuous.")
 	} else if avl.IsVirtuous(tx1) {
@@ -1235,26 +1360,40 @@ func QuiesceTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx2},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Quiesce() {
 		t.Fatalf("Shouldn't quiesce")
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if !avl.Quiesce() {
 		t.Fatalf("Should quiesce")
-	} else if err := avl.Add(vtx2); err != nil {
+	} else if acc, rej, err := avl.Add(vtx2); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if avl.Quiesce() {
 		t.Fatalf("Shouldn't quiesce")
 	}
 
 	sm := ids.UniqueBag{}
 	sm.Add(0, vtx2.IDV)
-	if err := avl.RecordPoll(sm); err != nil {
+	if acc, rej, err := avl.RecordPoll(sm); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 1 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if !avl.Quiesce() {
 		t.Fatalf("Should quiesce")
+	} else if vtx2.Status() != choices.Accepted {
+		t.Fatal("should be accepted")
 	}
 }
 
@@ -1335,24 +1474,36 @@ func OrphansTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx2},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if orphans := avl.Orphans(); orphans.Len() != 0 {
 		t.Fatalf("Wrong number of orphans")
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if orphans := avl.Orphans(); orphans.Len() != 0 {
 		t.Fatalf("Wrong number of orphans")
-	} else if err := avl.Add(vtx2); err != nil {
+	} else if acc, rej, err := avl.Add(vtx2); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if orphans := avl.Orphans(); orphans.Len() != 0 {
 		t.Fatalf("Wrong number of orphans")
 	}
 
 	sm := ids.UniqueBag{}
 	sm.Add(0, vtx1.IDV)
-	if err := avl.RecordPoll(sm); err != nil {
+	if acc, rej, err := avl.RecordPoll(sm); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	} else if orphans := avl.Orphans(); orphans.Len() != 1 {
 		t.Fatalf("Wrong number of orphans")
 	} else if !orphans.Contains(tx2.ID()) {
@@ -1398,8 +1549,11 @@ func ErrorOnVacuousAcceptTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx0},
 	}
 
-	if err := avl.Add(vtx0); err == nil {
+	if acc, rej, err := avl.Add(vtx0); err == nil {
 		t.Fatalf("Should have errored on vertex issuance")
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 }
 
@@ -1443,14 +1597,20 @@ func ErrorOnTxAcceptTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx0},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 
 	votes := ids.UniqueBag{}
 	votes.Add(0, vtx0.IDV)
-	if err := avl.RecordPoll(votes); err == nil {
+	if acc, rej, err := avl.RecordPoll(votes); err == nil {
 		t.Fatalf("Should have errored on vertex acceptance")
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 }
 
@@ -1494,14 +1654,20 @@ func ErrorOnVtxAcceptTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx0},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 
 	votes := ids.UniqueBag{}
 	votes.Add(0, vtx0.IDV)
-	if err := avl.RecordPoll(votes); err == nil {
+	if acc, rej, err := avl.RecordPoll(votes); err == nil {
 		t.Fatalf("Should have errored on vertex acceptance")
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 }
 
@@ -1561,16 +1727,25 @@ func ErrorOnVtxRejectTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx1},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 
 	votes := ids.UniqueBag{}
 	votes.Add(0, vtx0.IDV)
-	if err := avl.RecordPoll(votes); err == nil {
+	if acc, rej, err := avl.RecordPoll(votes); err == nil {
 		t.Fatalf("Should have errored on vertex rejection")
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 }
 
@@ -1640,18 +1815,30 @@ func ErrorOnParentVtxRejectTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx1},
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx2); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx2); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 
 	votes := ids.UniqueBag{}
 	votes.Add(0, vtx0.IDV)
-	if err := avl.RecordPoll(votes); err == nil {
+	if acc, rej, err := avl.RecordPoll(votes); err == nil {
 		t.Fatalf("Should have errored on vertex rejection")
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 }
 
@@ -1720,17 +1907,29 @@ func ErrorOnTransitiveVtxRejectTest(t *testing.T, factory Factory) {
 		HeightV:  1,
 	}
 
-	if err := avl.Add(vtx0); err != nil {
+	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx1); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx1); err != nil {
 		t.Fatal(err)
-	} else if err := avl.Add(vtx2); err != nil {
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
+	} else if acc, rej, err := avl.Add(vtx2); err != nil {
 		t.Fatal(err)
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 
 	votes := ids.UniqueBag{}
 	votes.Add(0, vtx0.IDV)
-	if err := avl.RecordPoll(votes); err == nil {
+	if acc, rej, err := avl.RecordPoll(votes); err == nil {
 		t.Fatalf("Should have errored on vertex rejection")
+	} else if acc.Len() != 0 || rej.Len() != 0 {
+		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
+			0, 0, acc.Len(), rej.Len())
 	}
 }
