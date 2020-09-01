@@ -45,7 +45,7 @@ func (v *voter) Update() {
 	}
 
 	v.t.Ctx.Log.Debug("Finishing poll with:\n%s", &results)
-	if err := v.t.Consensus.RecordPoll(results); err != nil {
+	if _, _, err := v.t.Consensus.RecordPoll(results); err != nil { // TODO use these values
 		v.t.errs.Add(err)
 		return
 	}
