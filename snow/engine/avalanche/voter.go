@@ -54,15 +54,13 @@ func (v *voter) Update() {
 	for _, acceptedID := range accepted.List() {
 		v.t.decidedCache.Put(acceptedID, nil)
 		v.t.droppedCache.Evict(acceptedID) // Remove from dropped cache, if it was in there
-		/* TODO update and uncomment
 		acceptedIDKey := acceptedID.Key()
-			blk, ok := v.t.processing[acceptedIDKey] // The block we're accepting
-			if !ok {
-				v.t.Ctx.Log.Warn("couldn't find accepted block %s in processing list. Block not saved to VM's database", acceptedID)
-			} else if err := v.t.VM.SaveBlock(blk); err != nil { // Save accepted block in VM's database
-				v.t.Ctx.Log.Warn("couldn't save block %s to VM's database: %s", acceptedID, err)
-			}
-		*/
+		vtx, ok := v.t.processing[acceptedIDKey] // The vertex we're accepting
+		if !ok {
+			v.t.Ctx.Log.Warn("couldn't find accepted vertex %s in processing list. Vertex not saved to VM's database", acceptedID)
+		} else if err := v.t.Manager.SaveVertex(vtx); err != nil { // Persist accepted vertex
+			v.t.Ctx.Log.Warn("couldn't save vertex %s to VM's database: %s", acceptedID, err)
+		}
 		delete(v.t.processing, acceptedID.Key())
 	}
 	for _, rejectedID := range rejected.List() {

@@ -20,11 +20,11 @@ import (
 type vtxParser struct {
 	log                     logging.Logger
 	numAccepted, numDropped prometheus.Counter
-	manager                 vertex.Manager
+	mgr                     vertex.Manager
 }
 
 func (p *vtxParser) Parse(vtxBytes []byte) (queue.Job, error) {
-	vtx, err := p.manager.ParseVertex(vtxBytes)
+	vtx, err := p.mgr.ParseVertex(vtxBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -33,6 +33,7 @@ func (p *vtxParser) Parse(vtxBytes []byte) (queue.Job, error) {
 		numAccepted: p.numAccepted,
 		numDropped:  p.numDropped,
 		vtx:         vtx,
+		mgr:         p.mgr,
 	}, nil
 }
 
@@ -40,6 +41,7 @@ type vertexJob struct {
 	log                     logging.Logger
 	numAccepted, numDropped prometheus.Counter
 	vtx                     avalanche.Vertex
+	mgr                     vertex.Manager
 }
 
 func (v *vertexJob) ID() ids.ID { return v.vtx.ID() }
@@ -87,6 +89,8 @@ func (v *vertexJob) Execute() error {
 		v.numAccepted.Inc()
 		if err := v.vtx.Accept(); err != nil {
 			return fmt.Errorf("failed to accept vertex in bootstrapping: %w", err)
+		} else if err := v.mgr.SaveVertex(v.vtx); err != nil {
+			return fmt.Errorf("failed to save block %s to VM's database: %s", v.vtx.ID(), err)
 		}
 	}
 	return nil

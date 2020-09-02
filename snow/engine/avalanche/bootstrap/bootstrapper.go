@@ -83,7 +83,7 @@ func (b *Bootstrapper) Initialize(
 		log:         config.Ctx.Log,
 		numAccepted: b.numAcceptedVts,
 		numDropped:  b.numDroppedVts,
-		manager:     b.Manager,
+		mgr:         b.Manager,
 	})
 
 	b.TxBlocked.SetParser(&txParser{
