@@ -35,6 +35,9 @@ func (i *issuer) Abandon() {
 		vtxID := i.vtx.ID()
 		i.t.pending.Remove(vtxID)
 		i.abandoned = true
+		// We're dropping this vertex; unpin it from memory
+		delete(i.t.processing, vtxID.Key())
+		i.t.droppedCache.Put(vtxID, i.vtx)
 		i.t.vtxBlocked.Abandon(vtxID) // Inform vertices waiting on this vtx that it won't be issued
 	}
 }

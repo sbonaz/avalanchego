@@ -45,9 +45,30 @@ func (v *voter) Update() {
 	}
 
 	v.t.Ctx.Log.Debug("Finishing poll with:\n%s", &results)
-	if _, _, err := v.t.Consensus.RecordPoll(results); err != nil { // TODO use these values
+	accepted, rejected, err := v.t.Consensus.RecordPoll(results)
+	if err != nil { // TODO use these values
 		v.t.errs.Add(err)
 		return
+	}
+	// Unpin accepted and rejected vertices from memory
+	for _, acceptedID := range accepted.List() {
+		v.t.decidedCache.Put(acceptedID, nil)
+		v.t.droppedCache.Evict(acceptedID) // Remove from dropped cache, if it was in there
+		/* TODO update and uncomment
+		acceptedIDKey := acceptedID.Key()
+			blk, ok := v.t.processing[acceptedIDKey] // The block we're accepting
+			if !ok {
+				v.t.Ctx.Log.Warn("couldn't find accepted block %s in processing list. Block not saved to VM's database", acceptedID)
+			} else if err := v.t.VM.SaveBlock(blk); err != nil { // Save accepted block in VM's database
+				v.t.Ctx.Log.Warn("couldn't save block %s to VM's database: %s", acceptedID, err)
+			}
+		*/
+		delete(v.t.processing, acceptedID.Key())
+	}
+	for _, rejectedID := range rejected.List() {
+		v.t.decidedCache.Put(rejectedID, nil)
+		v.t.droppedCache.Evict(rejectedID) // Remove from dropped cache, if it was in there
+		delete(v.t.processing, rejectedID.Key())
 	}
 
 	txs := []snowstorm.Tx(nil)

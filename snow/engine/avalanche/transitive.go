@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ava-labs/gecko/cache"
 	"github.com/ava-labs/gecko/utils/sampler"
 
 	"github.com/ava-labs/gecko/ids"
@@ -28,6 +29,12 @@ const (
 	// TODO define this constant in one place rather than here and in snowman
 	// Max containers size in a MultiPut message
 	maxContainersLen = int(4 * network.DefaultMaxMessageSize / 5)
+
+	// Max size of cache of accepted/rejected vertex IDs
+	decidedCacheSize = 5000
+
+	// Max size of cache of dropped vertices
+	droppedCacheSize = 1000
 )
 
 // Transitive implements the Engine interface by attempting to fetch all
@@ -55,6 +62,23 @@ type Transitive struct {
 	// txBlocked tracks operations that are blocked on transactions
 	vtxBlocked, txBlocked events.Blocker
 
+	// Key: ID of a processing block
+	// Value: The block
+	// Invariant: Every block in this map is processing
+	// If a block is dropped, it will be removed from this map.
+	// However, it may be re-added later.
+	processing map[[32]byte]avalanche.Vertex
+
+	// Cache of decided block IDs.
+	// Key: Block ID
+	// Value: nil
+	decidedCache cache.LRU
+
+	// Cache of dropped blocks
+	// We keep this so that if we drop a block and receive a query for it,
+	// we don't need to fetch the block again
+	droppedCache cache.LRU
+
 	errs wrappers.Errs
 }
 
@@ -62,6 +86,9 @@ type Transitive struct {
 func (t *Transitive) Initialize(config Config) error {
 	config.Ctx.Log.Info("Initializing consensus engine")
 
+	t.processing = map[[32]byte]avalanche.Vertex{}
+	t.decidedCache = cache.LRU{Size: decidedCacheSize}
+	t.droppedCache = cache.LRU{Size: droppedCacheSize}
 	t.Params = config.Params
 	t.Consensus = config.Consensus
 
@@ -89,7 +116,7 @@ func (t *Transitive) finishBootstrapping() error {
 	edge := t.Manager.Edge()
 	frontier := make([]avalanche.Vertex, 0, len(edge))
 	for _, vtxID := range edge {
-		if vtx, err := t.Manager.GetVertex(vtxID); err == nil {
+		if vtx, err := t.GetVertex(vtxID); err == nil {
 			frontier = append(frontier, vtx)
 		} else {
 			t.Ctx.Log.Error("vertex %s failed to be loaded from the frontier with %s", vtxID, err)
@@ -117,7 +144,7 @@ func (t *Transitive) Gossip() error {
 		return err // Also should never really happen because the edge has positive length
 	}
 	vtxID := edge[int(indices[0])]
-	vtx, err := t.Manager.GetVertex(vtxID)
+	vtx, err := t.GetVertex(vtxID)
 	if err != nil {
 		t.Ctx.Log.Warn("dropping gossip request as %s couldn't be loaded due to: %s", vtxID, err)
 		return nil
@@ -137,7 +164,7 @@ func (t *Transitive) Shutdown() error {
 // Get implements the Engine interface
 func (t *Transitive) Get(vdr ids.ShortID, requestID uint32, vtxID ids.ID) error {
 	// If this engine has access to the requested vertex, provide it
-	if vtx, err := t.Manager.GetVertex(vtxID); err == nil {
+	if vtx, err := t.GetVertex(vtxID); err == nil {
 		t.Sender.Put(vdr, requestID, vtxID, vtx.Bytes())
 	}
 	return nil
@@ -147,18 +174,18 @@ func (t *Transitive) Get(vdr ids.ShortID, requestID uint32, vtxID ids.ID) error 
 func (t *Transitive) GetAncestors(vdr ids.ShortID, requestID uint32, vtxID ids.ID) error {
 	startTime := time.Now()
 	t.Ctx.Log.Verbo("GetAncestors(%s, %d, %s) called", vdr, requestID, vtxID)
-	vertex, err := t.Manager.GetVertex(vtxID)
-	if err != nil || vertex.Status() == choices.Unknown {
+	vtx, err := t.GetVertex(vtxID)
+	if err != nil || vtx.Status() == choices.Unknown {
 		t.Ctx.Log.Verbo("dropping getAncestors")
 		return nil // Don't have the requested vertex. Drop message.
 	}
 
 	queue := make([]avalanche.Vertex, 1, common.MaxContainersPerMultiPut) // for BFS
-	queue[0] = vertex
+	queue[0] = vtx
 	ancestorsBytesLen := 0                                               // length, in bytes, of vertex and its ancestors
 	ancestorsBytes := make([][]byte, 0, common.MaxContainersPerMultiPut) // vertex and its ancestors in BFS order
 	visited := ids.Set{}                                                 // IDs of vertices that have been in queue before
-	visited.Add(vertex.ID())
+	visited.Add(vtx.ID())
 
 	for len(ancestorsBytes) < common.MaxContainersPerMultiPut && len(queue) > 0 && time.Since(startTime) < common.MaxTimeFetchingAncestors {
 		var vtx avalanche.Vertex
@@ -209,6 +236,12 @@ func (t *Transitive) Put(vdr ids.ShortID, requestID uint32, vtxID ids.ID, vtxByt
 		t.Ctx.Log.Debug("failed to parse vertex %s due to: %s", vtxID, err)
 		t.Ctx.Log.Verbo("vertex:\n%s", formatting.DumpBytes{Bytes: vtxBytes})
 		return t.GetFailed(vdr, requestID)
+	}
+	if vtx.Status() == choices.Processing { // Pin this block in memory until it's decided or dropped
+		vtxID := vtx.ID()
+		t.processing[vtxID.Key()] = vtx
+		t.droppedCache.Evict(vtxID)
+		// t.numProcessing.Set(float64(len(t.processing))) TODO add metric
 	}
 	_, err = t.issueFrom(vdr, vtx)
 	return err
@@ -289,6 +322,12 @@ func (t *Transitive) PushQuery(vdr ids.ShortID, requestID uint32, vtxID ids.ID, 
 		t.Ctx.Log.Debug("failed to parse vertex %s due to: %s", vtxID, err)
 		t.Ctx.Log.Verbo("vertex:\n%s", formatting.DumpBytes{Bytes: vtxBytes})
 		return nil
+	} else if gotID := vtx.ID(); !gotID.Equals(vtxID) {
+		return fmt.Errorf("expected vertex ID to be %s but got %s", vtxID, gotID)
+	} else if vtx.Status() == choices.Processing { // Pin this block in memory until it's decided or dropped
+		t.processing[vtxID.Key()] = vtx
+		t.droppedCache.Evict(vtxID)
+		// t.numProcessing.Set(float64(len(t.processing))) TODO add metric
 	}
 
 	if _, err := t.issueFrom(vdr, vtx); err != nil {
@@ -369,7 +408,7 @@ func (t *Transitive) repoll() error {
 // Fetches [vtxID] if we don't have it locally.
 // Returns true if [vtx] has been added to consensus (now or previously)
 func (t *Transitive) issueFromByID(vdr ids.ShortID, vtxID ids.ID) (bool, error) {
-	vtx, err := t.Manager.GetVertex(vtxID)
+	vtx, err := t.GetVertex(vtxID)
 	if err != nil {
 		// We don't have [vtxID]. Request it.
 		t.sendRequest(vdr, vtxID)
@@ -549,7 +588,7 @@ func (t *Transitive) issueRepoll() {
 
 	s := sampler.NewUniform()
 	if err := s.Initialize(uint64(numPreferredIDs)); err != nil {
-		return // Should never really happen
+		return // Should never happen
 	}
 	indices, err := s.Sample(1)
 	if err != nil {
@@ -606,6 +645,10 @@ func (t *Transitive) issueBatch(txs []snowstorm.Tx) error {
 			len(parentIDs), len(txs))
 		return nil
 	}
+	vtxID := vtx.ID()
+	t.processing[vtxID.Key()] = vtx
+	t.droppedCache.Evict(vtxID)
+	//t.numProcessing.Set(float64(len(t.processing))) todo add metric
 	return t.issue(vtx)
 }
 
@@ -619,4 +662,19 @@ func (t *Transitive) sendRequest(vdr ids.ShortID, vtxID ids.ID) {
 	t.outstandingVtxReqs.Add(vdr, t.RequestID, vtxID) // Mark that there is an outstanding request for this vertex
 	t.Sender.Get(vdr, t.RequestID, vtxID)
 	t.numVtxRequests.Set(float64(t.outstandingVtxReqs.Len())) // Tracks performance statistics
+}
+
+// GetVertex gets a vertex by its ID.
+// If vertex can't be found, returns an error.
+func (t *Transitive) GetVertex(id ids.ID) (avalanche.Vertex, error) {
+	// Check the processing set
+	if vtx, ok := t.processing[id.Key()]; ok {
+		return vtx, nil
+	}
+	// Check the cache of recently dropped vertices
+	if vtx, ok := t.droppedCache.Get(id); ok {
+		return vtx.(avalanche.Vertex), nil
+	}
+	// Not processing. Check the database.
+	return t.Manager.GetVertex(id)
 }
