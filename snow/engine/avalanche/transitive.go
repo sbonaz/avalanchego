@@ -124,7 +124,7 @@ func (t *Transitive) finishBootstrapping() error {
 	}
 
 	t.Ctx.Log.Info("bootstrapping finished with %d vertices in the accepted frontier", len(frontier))
-	return t.Consensus.Initialize(t.Ctx, t.Params, frontier)
+	return t.Consensus.Initialize(t.Ctx, t.Params, frontier, t.GetVertex)
 }
 
 // Gossip implements the Engine interface
@@ -199,15 +199,16 @@ func (t *Transitive) GetAncestors(vdr ids.ShortID, requestID uint32, vtxID ids.I
 		} else { // reached maximum response size
 			break
 		}
-		parents, err := vtx.Parents()
+		parentIDs, err := vtx.Parents()
 		if err != nil {
 			return err
 		}
-		for _, parent := range parents {
-			if parent.Status() == choices.Unknown { // Don't have this vertex;ignore
+		for _, parentID := range parentIDs {
+			parent, err := t.GetVertex(parentID)
+			if err != nil || parent.Status() == choices.Unknown { // Don't have this vertex; ignore
 				continue
 			}
-			if parentID := parent.ID(); !visited.Contains(parentID) { // If already visited, ignore
+			if !visited.Contains(parentID) { // If already visited, ignore
 				queue = append(queue, parent)
 				visited.Add(parentID)
 			}
@@ -408,6 +409,10 @@ func (t *Transitive) repoll() error {
 // Fetches [vtxID] if we don't have it locally.
 // Returns true if [vtx] has been added to consensus (now or previously)
 func (t *Transitive) issueFromByID(vdr ids.ShortID, vtxID ids.ID) (bool, error) {
+	if _, decided := t.decidedCache.Get(vtxID); decided {
+		// Block [blkID] was decided, so it must have been previously added to consensus.
+		return true, nil
+	}
 	vtx, err := t.GetVertex(vtxID)
 	if err != nil {
 		// We don't have [vtxID]. Request it.
@@ -440,15 +445,16 @@ func (t *Transitive) issueFrom(vdr ids.ShortID, vtx avalanche.Vertex) (bool, err
 			continue
 		}
 
-		parents, err := vtx.Parents()
+		parentIDs, err := vtx.Parents()
 		if err != nil {
 			return false, err
 		}
 		// Ensure we have ancestors of this vertex
-		for _, parent := range parents {
-			if !parent.Status().Fetched() {
+		for _, parentID := range parentIDs {
+			parent, err := t.GetVertex(parentID)
+			if err != nil || !parent.Status().Fetched() {
 				// We don't have the parent. Request it.
-				t.sendRequest(vdr, parent.ID())
+				t.sendRequest(vdr, parentID)
 				// We're missing an ancestor so we can't have issued the vtx in this method's argument
 				issued = false
 			} else {
@@ -480,14 +486,15 @@ func (t *Transitive) issue(vtx avalanche.Vertex) error {
 		vtx: vtx,
 	}
 
-	parents, err := vtx.Parents()
+	parentIDs, err := vtx.Parents()
 	if err != nil {
 		return err
 	}
-	for _, parent := range parents {
-		if !t.Consensus.VertexIssued(parent) {
+	for _, parentID := range parentIDs {
+		parent, err := t.GetVertex(parentID)
+		if err != nil || !t.Consensus.VertexIssued(parent) {
 			// This parent hasn't been issued yet. Add it as a dependency.
-			i.vtxDeps.Add(parent.ID())
+			i.vtxDeps.Add(parentID)
 		}
 	}
 

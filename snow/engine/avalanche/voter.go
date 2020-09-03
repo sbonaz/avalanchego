@@ -4,6 +4,8 @@
 package avalanche
 
 import (
+	"fmt"
+
 	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/snow/consensus/snowstorm"
 	"github.com/ava-labs/gecko/snow/engine/avalanche/vertex"
@@ -46,7 +48,7 @@ func (v *voter) Update() {
 
 	v.t.Ctx.Log.Debug("Finishing poll with:\n%s", &results)
 	accepted, rejected, err := v.t.Consensus.RecordPoll(results)
-	if err != nil { // TODO use these values
+	if err != nil {
 		v.t.errs.Add(err)
 		return
 	}
@@ -57,9 +59,13 @@ func (v *voter) Update() {
 		acceptedIDKey := acceptedID.Key()
 		vtx, ok := v.t.processing[acceptedIDKey] // The vertex we're accepting
 		if !ok {
-			v.t.Ctx.Log.Warn("couldn't find accepted vertex %s in processing list. Vertex not saved to VM's database", acceptedID)
+			err := fmt.Errorf("couldn't find accepted vertex %s in processing list. Vertex not saved to VM's database", acceptedID)
+			v.t.errs.Add(err)
+			return
 		} else if err := v.t.Manager.SaveVertex(vtx); err != nil { // Persist accepted vertex
-			v.t.Ctx.Log.Warn("couldn't save vertex %s to VM's database: %s", acceptedID, err)
+			err := fmt.Errorf("couldn't save vertex %s to VM's database: %s", acceptedID, err)
+			v.t.errs.Add(err)
+			return
 		}
 		delete(v.t.processing, acceptedID.Key())
 	}
@@ -134,13 +140,16 @@ func (v *voter) bubbleVotes(votes ids.UniqueBag) (ids.UniqueBag, error) {
 				set.Len(), vtx.ID())
 			bubbledVotes.RemoveSet(vtx.ID()) // Remove votes for this vertex because it hasn't been issued
 
-			parents, err := vtx.Parents()
+			parentIDs, err := vtx.Parents()
 			if err != nil {
 				return bubbledVotes, err
 			}
-			for _, parentVtx := range parents {
-				bubbledVotes.UnionSet(parentVtx.ID(), set)
-				vertexHeap.Push(parentVtx)
+			for _, parentID := range parentIDs {
+				parent, err := v.t.GetVertex(parentID)
+				if err == nil {
+					bubbledVotes.UnionSet(parentID, set)
+					vertexHeap.Push(parent)
+				}
 			}
 		}
 	}

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/ava-labs/gecko/snow/choices"
+
 	"github.com/ava-labs/gecko/cache"
 	"github.com/ava-labs/gecko/database"
 	"github.com/ava-labs/gecko/ids"
@@ -88,6 +90,7 @@ type manager struct {
 
 	ctx *snow.Context
 
+	// Vertices are persisted in here.
 	db database.Database
 
 	// Parses a tx from bytes
@@ -125,6 +128,7 @@ func (m *manager) BuildVertex(parentIDs ids.Set, txs []snowstorm.Tx) (avalanche.
 	height++
 
 	vtx := &vertex{
+		status:       choices.Processing,
 		mgr:          m,
 		ChainID:      m.ctx.ChainID,
 		Hght:         height,
@@ -159,10 +163,12 @@ func (m *manager) getVertex(vtxID ids.ID) (*vertex, error) {
 	if err != nil {
 		return nil, fmt.Errorf("couldn't deserialize to vertex %s: %w", vtxID, err)
 	}
+	vtx.status = choices.Accepted // Assumes that only accepted vertices are in database
 	m.vtxCache.Put(vtx.id, &vtx)
 	return vtx, nil
 }
 
+// SaveVertex saves [vtx] to the database.
 func (m *manager) SaveVertex(vtx avalanche.Vertex) error {
 	return m.db.Put(vtx.ID().Bytes(), vtx.Bytes())
 }
@@ -221,7 +227,12 @@ func (m *manager) parseVertex(b []byte) (*vertex, error) {
 		return nil, p.Err
 	}
 
-	vtx := &vertex{
+	vtxID := ids.NewID(hashing.ComputeHash256Array(b))
+	vtx, err := m.getVertex(vtxID)
+	if err == nil {
+		return vtx, nil
+	}
+	vtx = &vertex{
 		mgr:          m,
 		id:           ids.NewID(hashing.ComputeHash256Array(b)),
 		ParentIDs:    parentIDs,
@@ -229,6 +240,7 @@ func (m *manager) parseVertex(b []byte) (*vertex, error) {
 		Hght:         height,
 		Transactions: txs,
 		bytes:        b,
+		status:       choices.Processing,
 	}
 	m.vtxCache.Put(vtx.id, vtx)
 	return vtx, nil

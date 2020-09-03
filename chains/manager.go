@@ -18,7 +18,6 @@ import (
 	"github.com/ava-labs/gecko/network"
 	"github.com/ava-labs/gecko/snow"
 	"github.com/ava-labs/gecko/snow/consensus/snowball"
-	"github.com/ava-labs/gecko/snow/engine/avalanche/state"
 	"github.com/ava-labs/gecko/snow/engine/avalanche/vertex"
 	"github.com/ava-labs/gecko/snow/engine/common"
 	"github.com/ava-labs/gecko/snow/engine/common/queue"
@@ -42,9 +41,10 @@ import (
 )
 
 const (
-	defaultChannelSize = 1024
-	gossipFrequency    = 10 * time.Second
-	shutdownTimeout    = 1 * time.Second
+	defaultChannelSize  = 1024
+	defaultVtxCacheSize = 20000
+	gossipFrequency     = 10 * time.Second
+	shutdownTimeout     = 1 * time.Second
 )
 
 // Manager manages the chains running on this node.
@@ -478,8 +478,17 @@ func (m *manager) createAvalancheChain(
 
 	// Handles serialization/deserialization of vertices and also the
 	// persistence of vertices
-	vtxManager := &state.Serializer{}
-	vtxManager.Initialize(ctx, vm, vertexDB)
+	vtxManager, err := vertex.NewManager(
+		&vertex.ManagerConfig{
+			Ctx:          ctx,
+			DB:           vertexDB,
+			VtxCacheSize: defaultVtxCacheSize,
+			ParseTxF:     vm.ParseTx,
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't create new vertex manager: %w", err)
+	}
 
 	// Passes messages from the consensus engine to the network
 	sender := sender.Sender{}

@@ -4,6 +4,7 @@
 package avalanche
 
 import (
+	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/snow/choices"
 	"github.com/ava-labs/gecko/snow/consensus/snowstorm"
 )
@@ -13,7 +14,7 @@ type Vertex interface {
 	choices.Decidable
 
 	// Returns the vertices this vertex depends on
-	Parents() ([]Vertex, error)
+	Parents() ([]ids.ID, error)
 
 	// Returns the height of this vertex. A vertex's height is defined by one
 	// greater than the maximum height of the parents.

@@ -175,6 +175,7 @@ func (b *Bootstrapper) process(vtxs ...avalanche.Vertex) error {
 			b.needToFetch.Remove(vtxID)
 
 			if err := b.VtxBlocked.Push(&vertexJob{ // Add to queue of vertices to execute when bootstrapping finishes.
+				mgr:         b.Manager,
 				log:         b.Ctx.Log,
 				numAccepted: b.numAcceptedVts,
 				numDropped:  b.numDroppedVts,
@@ -188,6 +189,7 @@ func (b *Bootstrapper) process(vtxs ...avalanche.Vertex) error {
 			} else {
 				b.Ctx.Log.Verbo("couldn't push to vtxBlocked: %s", err)
 			}
+
 			txs, err := vtx.Txs()
 			if err != nil {
 				return err
@@ -204,13 +206,18 @@ func (b *Bootstrapper) process(vtxs ...avalanche.Vertex) error {
 					b.Ctx.Log.Verbo("couldn't push to txBlocked: %s", err)
 				}
 			}
-			parents, err := vtx.Parents()
+			parentIDs, err := vtx.Parents()
 			if err != nil {
 				return err
 			}
-			for _, parent := range parents { // Process the parents of this vertex (traverse up the DAG)
-				if _, ok := b.processedCache.Get(parent.ID()); !ok { // But only if we haven't processed the parent
-					toProcess.Push(parent)
+			for _, parentID := range parentIDs { // Process the parents of this vertex (traverse up the DAG)
+				if _, ok := b.processedCache.Get(parentID); !ok { // But only if we haven't processed the parent
+					parent, err := b.Manager.GetVertex(parentID)
+					if err != nil || !parent.Status.Fetched() {
+						b.needToFetch.Add(parentID) // We don't have this vertex locally. Mark that we need to fetch it.
+					} else {
+						toProcess.Push(parent)
+					}
 				}
 			}
 			height, err := vtx.Height()
@@ -277,12 +284,12 @@ func (b *Bootstrapper) MultiPut(vdr ids.ShortID, requestID uint32, vtxs [][]byte
 	processVertices := make([]avalanche.Vertex, 1, len(vtxs)) // Process all of the valid vertices in this message
 	processVertices[0] = vtx
 	eligibleVertices := ids.Set{}
-	parents, err := vtx.Parents()
+	parentIDs, err := vtx.Parents()
 	if err != nil {
 		return err
 	}
-	for _, parent := range parents {
-		eligibleVertices.Add(parent.ID())
+	for _, parentID := range parentIDs {
+		eligibleVertices.Add(parentID)
 	}
 
 	for _, vtxBytes := range vtxs[1:] { // Parse/persist all the vertices
@@ -298,12 +305,12 @@ func (b *Bootstrapper) MultiPut(vdr ids.ShortID, requestID uint32, vtxs [][]byte
 			break
 		}
 		eligibleVertices.Remove(vtxID)
-		parents, err := vtx.Parents()
+		parentIDs, err := vtx.Parents()
 		if err != nil {
 			return err
 		}
-		for _, parent := range parents {
-			eligibleVertices.Add(parent.ID())
+		for _, parentID := range parentIDs {
+			eligibleVertices.Add(parentID)
 		}
 		processVertices = append(processVertices, vtx)
 		b.needToFetch.Remove(vtxID) // No need to fetch this vertex since we have it now

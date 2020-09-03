@@ -48,13 +48,14 @@ func (v *vertexJob) ID() ids.ID { return v.vtx.ID() }
 
 func (v *vertexJob) MissingDependencies() (ids.Set, error) {
 	missing := ids.Set{}
-	parents, err := v.vtx.Parents()
+	parentIDs, err := v.vtx.Parents()
 	if err != nil {
 		return missing, err
 	}
-	for _, parent := range parents {
-		if parent.Status() != choices.Accepted {
-			missing.Add(parent.ID())
+	for _, parentID := range parentIDs {
+		parent, err := v.mgr.GetVertex(parentID)
+		if err != nil || parent.Status() != choices.Accepted {
+			missing.Add(parentID)
 		}
 	}
 	return missing, nil

@@ -4,6 +4,8 @@
 package avalanche
 
 import (
+	"fmt"
+
 	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/snow"
 	"github.com/ava-labs/gecko/snow/choices"
@@ -32,6 +34,10 @@ func (TopologicalFactory) New() Consensus { return &Topological{} }
 type Topological struct {
 	metrics
 
+	// Gets a vertex by its ID.
+	// Returns error if the vertex was not found.
+	getVertexF func(ids.ID) (Vertex, error)
+
 	// Context used for logging
 	ctx *snow.Context
 	// Threshold for confidence increases
@@ -46,8 +52,10 @@ type Topological struct {
 	// virtuous is the frontier of vtxIDs that are strongly virtuous
 	// orphans are the txIDs that are virtuous, but not preferred
 	preferred, virtuous, orphans ids.Set
+
 	// frontier is the set of vts that have no descendents
 	frontier map[[32]byte]Vertex
+
 	// preferenceCache is the cache for strongly preferred checks
 	// virtuousCache is the cache for strongly virtuous checks
 	preferenceCache, virtuousCache map[[32]byte]bool
@@ -63,6 +71,7 @@ func (ta *Topological) Initialize(
 	ctx *snow.Context,
 	params Parameters,
 	frontier []Vertex,
+	getVertexF func(ids.ID) (Vertex, error),
 ) error {
 	if err := params.Valid(); err != nil {
 		return err
@@ -70,6 +79,7 @@ func (ta *Topological) Initialize(
 
 	ta.ctx = ctx
 	ta.params = params
+	ta.getVertexF = getVertexF
 
 	if err := ta.metrics.Initialize(ctx.Log, params.Namespace, params.Metrics); err != nil {
 		return err
@@ -133,7 +143,7 @@ func (ta *Topological) Add(vtx Vertex) (ids.Set, ids.Set, error) {
 	ta.nodes[key] = vtx // Add this vertex to the set of nodes
 	ta.metrics.Issued(vtxID)
 
-	return ta.update(vtx) // Update the vertex and it's ancestry
+	return ta.update(vtxID) // Update the vertex and it's ancestry
 }
 
 // VertexIssued implements the Avalanche interface
@@ -251,13 +261,17 @@ func (ta *Topological) calculateInDegree(responses ids.UniqueBag) (
 func (ta *Topological) markAncestorInDegrees(
 	kahns map[[32]byte]kahnNode,
 	leaves ids.Set,
-	deps []Vertex,
+	parentIDs []ids.ID,
 ) (map[[32]byte]kahnNode, ids.Set, error) {
-	frontier := make([]Vertex, 0, len(deps))
-	for _, vtx := range deps {
+	frontier := make([]Vertex, 0, len(parentIDs))
+	for _, parentID := range parentIDs {
+		parent, err := ta.getVertex(parentID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("couldn't get vertex %s", parentID)
+		}
 		// The vertex may have been decided, no need to vote in that case
-		if !vtx.Status().Decided() {
-			frontier = append(frontier, vtx)
+		if !parent.Status().Decided() {
+			frontier = append(frontier, parent)
 		}
 	}
 
@@ -282,14 +296,18 @@ func (ta *Topological) markAncestorInDegrees(
 		if !alreadySeen {
 			// If I am seeing this node for the first time, I need to check its
 			// parents
-			parents, err := current.Parents()
+			parentIDs, err := current.Parents()
 			if err != nil {
 				return nil, nil, err
 			}
-			for _, depVtx := range parents {
+			for _, parentID := range parentIDs {
+				parent, err := ta.getVertex(parentID)
+				if err != nil {
+					return nil, nil, fmt.Errorf("couldn't get vertex %s", parentID)
+				}
 				// No need to traverse to a decided vertex
-				if !depVtx.Status().Decided() {
-					frontier = append(frontier, depVtx)
+				if !parent.Status().Decided() {
+					frontier = append(frontier, parent)
 				}
 			}
 		}
@@ -330,22 +348,21 @@ func (ta *Topological) pushVotes(
 				}
 			}
 
-			parents, err := vtx.Parents()
+			parentIDs, err := vtx.Parents()
 			if err != nil {
 				return ids.Bag{}, err
 			}
-			for _, dep := range parents {
-				depID := dep.ID()
-				depKey := depID.Key()
-				if depNode, notPruned := kahnNodes[depKey]; notPruned {
+			for _, parentID := range parentIDs {
+				parentIDKey := parentID.Key()
+				if depNode, notPruned := kahnNodes[parentIDKey]; notPruned {
 					depNode.inDegree--
 					// Give the votes to my parents
 					depNode.votes.Union(kahn.votes)
-					kahnNodes[depKey] = depNode
+					kahnNodes[parentIDKey] = depNode
 
 					if depNode.inDegree == 0 {
 						// Only traverse into the leaves
-						leaves = append(leaves, depID)
+						leaves = append(leaves, parentID)
 					}
 				}
 			}
@@ -380,9 +397,13 @@ func (ta *Topological) pushVotes(
 //      Nil if there are none.
 //   2) The IDs of vertices rejected as a result of this operation.
 //      Nil if there are none.
-func (ta *Topological) update(vtx Vertex) (ids.Set, ids.Set, error) {
-	vtxID := vtx.ID()
+func (ta *Topological) update(vtxID ids.ID) (ids.Set, ids.Set, error) {
 	vtxKey := vtxID.Key()
+	vtx, err := ta.getVertex(vtxID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("couldn't update vertex %s: not found", vtxID)
+	}
+
 	if _, cached := ta.preferenceCache[vtxKey]; cached {
 		return nil, nil, nil // This vertex has already been updated
 	}
@@ -432,7 +453,7 @@ func (ta *Topological) update(vtx Vertex) (ids.Set, ids.Set, error) {
 		}
 	}
 
-	deps, err := vtx.Parents()
+	parentIDs, err := vtx.Parents()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -440,23 +461,26 @@ func (ta *Topological) update(vtx Vertex) (ids.Set, ids.Set, error) {
 	rejected := ids.Set{}
 
 	// Update all of my dependencies
-	for _, dep := range deps {
-		acc, rej, err := ta.update(dep)
+	for _, parentID := range parentIDs {
+		acc, rej, err := ta.update(parentID)
 		if err != nil {
 			return nil, nil, err
 		}
 		accepted.Union(acc)
 		rejected.Union(rej)
 
-		depID := dep.ID()
-		key := depID.Key()
+		key := parentID.Key()
 		preferred = preferred && ta.preferenceCache[key]
 		virtuous = virtuous && ta.virtuousCache[key]
 	}
 
 	// Check my parent statuses
-	for _, dep := range deps {
-		if status := dep.Status(); status == choices.Rejected {
+	for _, parentID := range parentIDs {
+		parent, err := ta.getVertex(parentID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("couldn't get vertex %s", parentID)
+		}
+		if status := parent.Status(); status == choices.Rejected {
 			// My parent is rejected, so I should be rejected
 			if err := vtx.Reject(); err != nil {
 				return nil, nil, err
@@ -482,8 +506,8 @@ func (ta *Topological) update(vtx Vertex) (ids.Set, ids.Set, error) {
 	// Therefore, this is very unlikely to actually be triggered in practice.
 
 	// Remove all my parents from the frontier
-	for _, dep := range deps {
-		delete(ta.frontier, dep.ID().Key())
+	for _, parentID := range parentIDs {
+		delete(ta.frontier, parentID.Key())
 	}
 	ta.frontier[vtxKey] = vtx // I have no descendents yet
 
@@ -492,8 +516,8 @@ func (ta *Topological) update(vtx Vertex) (ids.Set, ids.Set, error) {
 
 	if preferred {
 		ta.preferred.Add(vtxID) // I'm preferred
-		for _, dep := range deps {
-			ta.preferred.Remove(dep.ID()) // My parents aren't part of the frontier
+		for _, parentID := range parentIDs {
+			ta.preferred.Remove(parentID) // My parents aren't part of the frontier
 		}
 
 		for _, tx := range txs {
@@ -505,8 +529,8 @@ func (ta *Topological) update(vtx Vertex) (ids.Set, ids.Set, error) {
 
 	if virtuous {
 		ta.virtuous.Add(vtxID) // I'm virtuous
-		for _, dep := range deps {
-			ta.virtuous.Remove(dep.ID()) // My parents aren't part of the frontier
+		for _, parentID := range parentIDs {
+			ta.virtuous.Remove(parentID) // My parents aren't part of the frontier
 		}
 	}
 
@@ -557,7 +581,7 @@ func (ta *Topological) updateFrontiers() (ids.Set, ids.Set, error) {
 	rejected := ids.Set{}
 	for _, vtx := range vts {
 		// Update all the vertices that were in my previous frontier
-		acc, rej, err := ta.update(vtx)
+		acc, rej, err := ta.update(vtx.ID())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -565,4 +589,8 @@ func (ta *Topological) updateFrontiers() (ids.Set, ids.Set, error) {
 		rejected.Union(rej)
 	}
 	return accepted, rejected, nil
+}
+
+func (ta *Topological) getVertex(vtxID ids.ID) (Vertex, error) {
+	return ta.getVertexF(vtxID)
 }

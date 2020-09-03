@@ -4,6 +4,8 @@
 package avalanche
 
 import (
+	"fmt"
+
 	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/snow/consensus/avalanche"
 	"github.com/ava-labs/gecko/snow/consensus/snowstorm"
@@ -82,9 +84,32 @@ func (i *issuer) Update() {
 	i.t.Ctx.Log.Verbo("Adding vertex to consensus:\n%s", i.vtx)
 
 	// Add this vertex to consensus.
-	if _, _, err := i.t.Consensus.Add(i.vtx); err != nil { // TODO Use these values
+	accepted, rejected, err := i.t.Consensus.Add(i.vtx)
+	if err != nil {
 		i.t.errs.Add(err)
 		return
+	}
+	// Unpin accepted and rejected vertices from memory
+	for _, acceptedID := range accepted.List() {
+		i.t.decidedCache.Put(acceptedID, nil)
+		i.t.droppedCache.Evict(acceptedID) // Remove from dropped cache, if it was in there
+		acceptedIDKey := acceptedID.Key()
+		vtx, ok := i.t.processing[acceptedIDKey] // The vertex we're accepting
+		if !ok {
+			err := fmt.Errorf("couldn't find accepted vertex %s in processing list. Vertex not saved to VM's database", acceptedID)
+			i.t.errs.Add(err)
+			return
+		} else if err := i.t.Manager.SaveVertex(vtx); err != nil { // Persist accepted vertex
+			err := fmt.Errorf("couldn't save vertex %s to VM's database: %s", acceptedID, err)
+			i.t.errs.Add(err)
+			return
+		}
+		delete(i.t.processing, acceptedID.Key())
+	}
+	for _, rejectedID := range rejected.List() {
+		i.t.decidedCache.Put(rejectedID, nil)
+		i.t.droppedCache.Evict(rejectedID) // Remove from dropped cache, if it was in there
+		delete(i.t.processing, rejectedID.Key())
 	}
 
 	// Issue a poll for this vertex.
