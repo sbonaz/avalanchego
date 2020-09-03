@@ -164,7 +164,7 @@ func (m *manager) getVertex(vtxID ids.ID) (*vertex, error) {
 		return nil, fmt.Errorf("couldn't deserialize to vertex %s: %w", vtxID, err)
 	}
 	vtx.status = choices.Accepted // Assumes that only accepted vertices are in database
-	m.vtxCache.Put(vtx.id, &vtx)
+	m.vtxCache.Put(vtx.id, vtx)
 	return vtx, nil
 }
 
@@ -189,7 +189,17 @@ func (m *manager) Edge() []ids.ID {
 
 // Unmarshal attempts to parse a vertex from bytes.
 func (m *manager) ParseVertex(b []byte) (avalanche.Vertex, error) {
-	return m.parseVertex(b)
+	parsedVtx, err := m.parseVertex(b)
+	if err != nil {
+		return nil, err
+	}
+	parsedVtxID := parsedVtx.ID()
+	vtx, ok := m.vtxCache.Get(parsedVtxID)
+	if ok {
+		return vtx.(*vertex), nil // Found this vertex in the cache. Return that one.
+	}
+	m.vtxCache.Put(parsedVtxID, parsedVtx)
+	return parsedVtx, nil
 }
 
 // Unmarshal attempts to parse a vertex from bytes.
@@ -227,12 +237,7 @@ func (m *manager) parseVertex(b []byte) (*vertex, error) {
 		return nil, p.Err
 	}
 
-	vtxID := ids.NewID(hashing.ComputeHash256Array(b))
-	vtx, err := m.getVertex(vtxID)
-	if err == nil {
-		return vtx, nil
-	}
-	vtx = &vertex{
+	vtx := &vertex{
 		mgr:          m,
 		id:           ids.NewID(hashing.ComputeHash256Array(b)),
 		ParentIDs:    parentIDs,
@@ -242,7 +247,6 @@ func (m *manager) parseVertex(b []byte) (*vertex, error) {
 		bytes:        b,
 		status:       choices.Processing,
 	}
-	m.vtxCache.Put(vtx.id, vtx)
 	return vtx, nil
 }
 
