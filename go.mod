@@ -2,8 +2,6 @@ module github.com/ava-labs/gecko
 
 go 1.14
 
-replace github.com/ava-labs/coreth => /home/danlaine/go/src/github.com/ava-labs/coreth
-
 require (
 	github.com/AppsFlyer/go-sundheit v0.2.0
 	github.com/allegro/bigcache v1.2.1 // indirect
