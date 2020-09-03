@@ -242,6 +242,8 @@ type Index struct {
 
 // GetUTXOsArgs are arguments for passing into GetUTXOs.
 // Gets the UTXOs that reference at least one address in [Addresses].
+// If specified, [SourceChain] is the chain where the atomic UTXOs were exported from. If empty,
+// or the Platform Chain ID is specified, then GetUTXOs fetches the native UTXOs.
 // Returns at most [limit] addresses.
 // If [limit] == 0 or > [maxUTXOsToFetch], fetches up to [maxUTXOsToFetch].
 // [StartIndex] defines where to start fetching UTXOs (for pagination.)
@@ -251,9 +253,10 @@ type Index struct {
 // If GetUTXOs is called multiple times, with our without [StartIndex], it is not guaranteed
 // that returned UTXOs are unique. That is, the same UTXO may appear in the response of multiple calls.
 type GetUTXOsArgs struct {
-	Addresses  []string    `json:"addresses"`
-	Limit      json.Uint32 `json:"limit"`
-	StartIndex Index       `json:"startIndex"`
+	Addresses   []string    `json:"addresses"`
+	SourceChain string      `json:"sourceChain"`
+	Limit       json.Uint32 `json:"limit"`
+	StartIndex  Index       `json:"startIndex"`
 }
 
 // GetUTXOsResponse defines the GetUTXOs replies returned from the API
@@ -279,39 +282,32 @@ func (service *Service) GetUTXOs(_ *http.Request, args *GetUTXOsArgs, response *
 		return fmt.Errorf("number of addresses given, %d, exceeds maximum, %d", len(args.Addresses), maxGetUTXOsAddrs)
 	}
 
-	chainID := ids.ID{}
-
-	addrSet := ids.ShortSet{} // Put in a set for de-duplication
-	for _, addrStr := range args.Addresses {
-		addrChainID, addr, err := service.vm.ParseAddress(addrStr)
+	sourceChain := ids.ID{}
+	if args.SourceChain == "" {
+		sourceChain = service.vm.Ctx.ChainID
+	} else {
+		chainID, err := service.vm.Ctx.BCLookup.Lookup(args.SourceChain)
 		if err != nil {
-			return fmt.Errorf("problem parsing address %q: %w", addrStr, err)
+			return fmt.Errorf("problem parsing source chainID %q: %w", args.SourceChain, err)
 		}
-		if chainID.IsZero() {
-			chainID = addrChainID
-		}
-		if !chainID.Equals(addrChainID) {
-			return fmt.Errorf("addresses from multiple chains provided: %q and %q",
-				chainID, addrChainID)
-		}
-		addrSet.Add(addr)
+		sourceChain = chainID
 	}
 
-	addrs := make([][]byte, addrSet.Len())
-	for i, addr := range addrSet.List() {
-		addrs[i] = addr.Bytes()
+	addrSet := ids.ShortSet{}
+	for _, addrStr := range args.Addresses {
+		addr, err := service.vm.ParseLocalAddress(addrStr)
+		if err != nil {
+			return fmt.Errorf("couldn't parse address %q: %w", addrStr, err)
+		}
+		addrSet.Add(addr)
 	}
 
 	startAddr := ids.ShortEmpty
 	startUTXO := ids.Empty
 	if args.StartIndex.Address != "" || args.StartIndex.UTXO != "" {
-		addrChainID, addr, err := service.vm.ParseAddress(args.StartIndex.Address)
+		addr, err := service.vm.ParseLocalAddress(args.StartIndex.Address)
 		if err != nil {
-			return fmt.Errorf("couldn't parse start index address: %w", err)
-		}
-		if !chainID.Equals(addrChainID) {
-			return fmt.Errorf("addresses from multiple chains provided: %q and %q",
-				chainID, addrChainID)
+			return fmt.Errorf("couldn't parse start index address %q: %w", args.StartIndex.Address, err)
 		}
 		utxo, err := ids.FromString(args.StartIndex.UTXO)
 		if err != nil {
@@ -328,7 +324,7 @@ func (service *Service) GetUTXOs(_ *http.Request, args *GetUTXOsArgs, response *
 		endUTXOID ids.ID
 		err       error
 	)
-	if chainID.Equals(service.vm.Ctx.ChainID) {
+	if sourceChain.Equals(service.vm.Ctx.ChainID) {
 		utxos, endAddr, endUTXOID, err = service.vm.GetUTXOs(
 			service.vm.DB,
 			addrSet,
@@ -338,7 +334,7 @@ func (service *Service) GetUTXOs(_ *http.Request, args *GetUTXOsArgs, response *
 		)
 	} else {
 		utxos, endAddr, endUTXOID, err = service.vm.GetAtomicUTXOs(
-			chainID,
+			sourceChain,
 			addrSet,
 			startAddr,
 			startUTXO,
@@ -353,18 +349,19 @@ func (service *Service) GetUTXOs(_ *http.Request, args *GetUTXOsArgs, response *
 	for i, utxo := range utxos {
 		bytes, err := service.vm.codec.Marshal(utxo)
 		if err != nil {
-			return fmt.Errorf("couldn't serialize UTXO %s: %s", utxo.InputID(), err)
+			return fmt.Errorf("couldn't serialize UTXO %q: %w", utxo.InputID(), err)
 		}
 		response.UTXOs[i] = formatting.CB58{Bytes: bytes}
 	}
 
-	endAddress, err := service.vm.FormatAddress(chainID, endAddr)
+	endAddress, err := service.vm.FormatLocalAddress(endAddr)
 	if err != nil {
 		return fmt.Errorf("problem formatting address: %w", err)
 	}
 
 	response.EndIndex.Address = endAddress
 	response.EndIndex.UTXO = endUTXOID.String()
+	response.NumFetched = json.Uint64(len(utxos))
 	return nil
 }
 
@@ -527,7 +524,7 @@ func (service *Service) GetCurrentValidators(_ *http.Request, args *GetCurrentVa
 		args.SubnetID = constants.PrimaryNetworkID
 	}
 
-	stopPrefix := []byte(fmt.Sprintf("%s%s", args.SubnetID, stop))
+	stopPrefix := []byte(fmt.Sprintf("%s%s", args.SubnetID, stopDBPrefix))
 	stopDB := prefixdb.NewNested(stopPrefix, service.vm.DB)
 	defer stopDB.Close()
 
@@ -555,12 +552,26 @@ func (service *Service) GetCurrentValidators(_ *http.Request, args *GetCurrentVa
 				StakeAmount: &weight,
 			})
 		case *UnsignedAddValidatorTx:
+			nodeID := staker.Validator.ID()
+			startTime := staker.StartTime()
 			weight := json.Uint64(staker.Validator.Weight())
+			rawUptime, err := service.vm.calculateUptime(service.vm.DB, nodeID, startTime)
+			if err != nil {
+				return err
+			}
+			uptime := json.Float32(rawUptime)
+
+			service.vm.connLock.Lock()
+			_, connected := service.vm.connections[nodeID.Key()]
+			service.vm.connLock.Unlock()
+
 			reply.Validators = append(reply.Validators, FormattedAPIValidator{
-				ID:          staker.Validator.ID().PrefixedString(constants.NodeIDPrefix),
-				StartTime:   json.Uint64(staker.StartTime().Unix()),
+				ID:          nodeID.PrefixedString(constants.NodeIDPrefix),
+				StartTime:   json.Uint64(startTime.Unix()),
 				EndTime:     json.Uint64(staker.EndTime().Unix()),
 				StakeAmount: &weight,
+				Uptime:      &uptime,
+				Connected:   &connected,
 			})
 		case *UnsignedAddSubnetValidatorTx:
 			weight := json.Uint64(staker.Validator.Weight())
@@ -596,7 +607,7 @@ func (service *Service) GetPendingValidators(_ *http.Request, args *GetPendingVa
 		args.SubnetID = constants.PrimaryNetworkID
 	}
 
-	startPrefix := []byte(fmt.Sprintf("%s%s", args.SubnetID, start))
+	startPrefix := []byte(fmt.Sprintf("%s%s", args.SubnetID, startDBPrefix))
 	startDB := prefixdb.NewNested(startPrefix, service.vm.DB)
 	defer startDB.Close()
 
@@ -752,7 +763,7 @@ func (service *Service) AddValidator(_ *http.Request, args *AddValidatorArgs, re
 		nodeID,                               // Node ID
 		rewardAddress,                        // Reward Address
 		uint32(10000*args.DelegationFeeRate), // Shares
-		privKeys, // Private keys
+		privKeys,                             // Private keys
 	)
 	if err != nil {
 		return fmt.Errorf("couldn't create tx: %w", err)

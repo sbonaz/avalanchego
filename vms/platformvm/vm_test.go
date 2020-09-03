@@ -36,6 +36,7 @@ import (
 	"github.com/ava-labs/gecko/utils/formatting"
 	"github.com/ava-labs/gecko/utils/json"
 	"github.com/ava-labs/gecko/utils/logging"
+	"github.com/ava-labs/gecko/utils/timer"
 	"github.com/ava-labs/gecko/utils/units"
 	"github.com/ava-labs/gecko/vms/components/avax"
 	"github.com/ava-labs/gecko/vms/components/core"
@@ -356,6 +357,10 @@ func TestAddValidatorCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := blk.Verify(); err != nil {
+		t.Fatal(err)
+	}
+
 	// Assert preferences are correct
 	block := blk.(*ProposalBlock)
 	options, err := block.Options()
@@ -368,9 +373,7 @@ func TestAddValidatorCommit(t *testing.T) {
 	}
 	_, ok = options[1].(*Abort)
 	if !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := block.Verify(); err != nil {
-		t.Fatal(err)
+		t.Fatal(errShouldPrefCommit)
 	} else if err := block.Accept(); err != nil {
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(block); err != nil { // Normally done by the engine
@@ -480,6 +483,10 @@ func TestAddValidatorReject(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := blk.Verify(); err != nil {
+		t.Fatal(err)
+	}
+
 	// Assert preferences are correct
 	block := blk.(*ProposalBlock)
 	options, err := block.Options()
@@ -488,9 +495,7 @@ func TestAddValidatorReject(t *testing.T) {
 	} else if commit, ok := options[0].(*Commit); !ok {
 		t.Fatal(errShouldPrefCommit)
 	} else if abort, ok := options[1].(*Abort); !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := block.Verify(); err != nil {
-		t.Fatal(err)
+		t.Fatal(errShouldPrefCommit)
 	} else if err := block.Accept(); err != nil {
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(block); err != nil { // Normally done by the engine
@@ -559,6 +564,10 @@ func TestAddSubnetValidatorAccept(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := blk.Verify(); err != nil {
+		t.Fatal(err)
+	}
+
 	// Assert preferences are correct
 	block := blk.(*ProposalBlock)
 	options, err := block.Options()
@@ -569,9 +578,7 @@ func TestAddSubnetValidatorAccept(t *testing.T) {
 	if !ok {
 		t.Fatal(errShouldPrefCommit)
 	} else if abort, ok := options[1].(*Abort); !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := block.Verify(); err != nil {
-		t.Fatal(err)
+		t.Fatal(errShouldPrefCommit)
 	} else if err := block.Accept(); err != nil {
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(block); err != nil { // Normally done by the engine
@@ -641,6 +648,10 @@ func TestAddSubnetValidatorReject(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := blk.Verify(); err != nil {
+		t.Fatal(err)
+	}
+
 	// Assert preferences are correct
 	block := blk.(*ProposalBlock)
 	options, err := block.Options()
@@ -651,9 +662,7 @@ func TestAddSubnetValidatorReject(t *testing.T) {
 	if !ok {
 		t.Fatal(errShouldPrefCommit)
 	} else if abort, ok := options[1].(*Abort); !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := block.Verify(); err != nil {
-		t.Fatal(err)
+		t.Fatal(errShouldPrefCommit)
 	} else if err := block.Accept(); err != nil {
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(block); err != nil { // Normally done by the engine
@@ -703,6 +712,10 @@ func TestRewardValidatorAccept(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := blk.Verify(); err != nil {
+		t.Fatal(err)
+	}
+
 	// Assert preferences are correct
 	block := blk.(*ProposalBlock)
 	options, err := block.Options()
@@ -713,9 +726,7 @@ func TestRewardValidatorAccept(t *testing.T) {
 	if !ok {
 		t.Fatal(errShouldPrefCommit)
 	} else if abort, ok := options[1].(*Abort); !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := block.Verify(); err != nil {
-		t.Fatal(err)
+		t.Fatal(errShouldPrefCommit)
 	} else if err := block.Accept(); err != nil {
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(block); err != nil { // Normally done by the engine
@@ -748,7 +759,10 @@ func TestRewardValidatorAccept(t *testing.T) {
 	blk, err = vm.BuildBlock() // should contain proposal to reward genesis validator
 	if err != nil {
 		t.Fatal(err)
+	} else if err := blk.Verify(); err != nil {
+		t.Fatal(err)
 	}
+
 	// Assert preferences are correct
 	block = blk.(*ProposalBlock)
 	options, err = block.Options()
@@ -759,9 +773,7 @@ func TestRewardValidatorAccept(t *testing.T) {
 	if !ok {
 		t.Fatal(errShouldPrefCommit)
 	} else if abort, ok := options[1].(*Abort); !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := block.Verify(); err != nil {
-		t.Fatal(err)
+		t.Fatal(errShouldPrefCommit)
 	} else if err := block.Accept(); err != nil {
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(block); err != nil { // Normally done by the engine
@@ -807,6 +819,10 @@ func TestRewardValidatorReject(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := blk.Verify(); err != nil {
+		t.Fatal(err)
+	}
+
 	// Assert preferences are correct
 	block := blk.(*ProposalBlock)
 	if options, err := block.Options(); err != nil {
@@ -814,9 +830,91 @@ func TestRewardValidatorReject(t *testing.T) {
 	} else if commit, ok := options[0].(*Commit); !ok {
 		t.Fatal(errShouldPrefCommit)
 	} else if abort, ok := options[1].(*Abort); !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := block.Verify(); err != nil {
+		t.Fatal(errShouldPrefCommit)
+	} else if err := block.Accept(); err != nil {
 		t.Fatal(err)
+	} else if err := commit.Verify(); err != nil {
+		t.Fatal(err)
+	} else if err := abort.Verify(); err != nil {
+		t.Fatal(err)
+	} else if status, err := vm.getStatus(abort.onAccept(), block.Tx.ID()); err != nil {
+		t.Fatal(err)
+	} else if status != Aborted {
+		t.Fatalf("status should be Aborted but is %s", status)
+	} else if err := commit.Accept(); err != nil { // advance the timestamp
+		t.Fatal(err)
+	} else if status, err := vm.getStatus(vm.DB, block.Tx.ID()); err != nil {
+		t.Fatal(err)
+	} else if status != Committed {
+		t.Fatalf("status should be Committed but is %s", status)
+	} else if timestamp, err := vm.getTimestamp(vm.DB); err != nil { // Verify that chain's timestamp has advanced
+		t.Fatal(err)
+	} else if !timestamp.Equal(defaultValidateEndTime) {
+		t.Fatal("expected timestamp to have advanced")
+	}
+	if blk, err = vm.BuildBlock(); err != nil { // should contain proposal to reward genesis validator
+		t.Fatal(err)
+	} else if err := blk.Verify(); err != nil {
+		t.Fatal(err)
+	}
+	block = blk.(*ProposalBlock)
+	if options, err := block.Options(); err != nil { // Assert preferences are correct
+		t.Fatal(err)
+	} else if commit, ok := options[0].(*Commit); !ok {
+		t.Fatal(errShouldPrefCommit)
+	} else if abort, ok := options[1].(*Abort); !ok {
+		t.Fatal(errShouldPrefCommit)
+	} else if err := blk.Accept(); err != nil {
+		t.Fatal(err)
+	} else if err := commit.Verify(); err != nil {
+		t.Fatal(err)
+	} else if status, err := vm.getStatus(commit.onAccept(), block.Tx.ID()); err != nil {
+		t.Fatal(err)
+	} else if status != Committed {
+		t.Fatalf("status should be Committed but is %s", status)
+	} else if err := abort.Verify(); err != nil {
+		t.Fatal(err)
+	} else if err := abort.Accept(); err != nil { // do not reward the genesis validator
+		t.Fatal(err)
+	} else if status, err := vm.getStatus(vm.DB, block.Tx.ID()); err != nil {
+		t.Fatal(err)
+	} else if status != Aborted {
+		t.Fatalf("status should be Aborted but is %s", status)
+	} else if _, isValidator, err := vm.isValidator(vm.DB, constants.PrimaryNetworkID, keys[1].PublicKey().Address()); err != nil {
+		// Verify that genesis validator was removed from current validator set
+		t.Fatal(err)
+	} else if isValidator {
+		t.Fatal("should have removed a genesis validator")
+	}
+}
+
+// Test case where primary network validator is preferred to be rewarded
+func TestRewardValidatorPreferred(t *testing.T) {
+	vm, _ := defaultVM()
+	vm.Ctx.Lock.Lock()
+	defer func() {
+		vm.Shutdown()
+		vm.Ctx.Lock.Unlock()
+	}()
+
+	// Fast forward clock to time for genesis validators to leave
+	vm.clock.Set(defaultValidateEndTime)
+
+	blk, err := vm.BuildBlock() // should contain proposal to advance time
+	if err != nil {
+		t.Fatal(err)
+	} else if err := blk.Verify(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert preferences are correct
+	block := blk.(*ProposalBlock)
+	if options, err := block.Options(); err != nil {
+		t.Fatal(err)
+	} else if commit, ok := options[0].(*Commit); !ok {
+		t.Fatal(errShouldPrefCommit)
+	} else if abort, ok := options[1].(*Abort); !ok {
+		t.Fatal(errShouldPrefCommit)
 	} else if err := block.Accept(); err != nil {
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(block); err != nil { // Normally done by the engine
@@ -842,7 +940,10 @@ func TestRewardValidatorReject(t *testing.T) {
 	} else if !timestamp.Equal(defaultValidateEndTime) {
 		t.Fatal("expected timestamp to have advanced")
 	}
+
 	if blk, err = vm.BuildBlock(); err != nil { // should contain proposal to reward genesis validator
+		t.Fatal(err)
+	} else if err := blk.Verify(); err != nil {
 		t.Fatal(err)
 	}
 	block = blk.(*ProposalBlock)
@@ -851,10 +952,8 @@ func TestRewardValidatorReject(t *testing.T) {
 	} else if commit, ok := options[0].(*Commit); !ok {
 		t.Fatal(errShouldPrefCommit)
 	} else if abort, ok := options[1].(*Abort); !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := blk.(*ProposalBlock).Verify(); err != nil {
-		t.Fatal(err)
-	} else if err := blk.(*ProposalBlock).Accept(); err != nil {
+		t.Fatal(errShouldPrefCommit)
+	} else if err := blk.Accept(); err != nil {
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(blk); err != nil { // Normally done by the engine
 		t.Fatalf("couldn't save block: %s", err)
@@ -1009,6 +1108,8 @@ func TestCreateSubnet(t *testing.T) {
 	blk, err := vm.BuildBlock() // should add validator to the new subnet
 	if err != nil {
 		t.Fatal(err)
+	} else if err := blk.Verify(); err != nil {
+		t.Fatal(err)
 	}
 
 	// Assert preferences are correct
@@ -1022,10 +1123,8 @@ func TestCreateSubnet(t *testing.T) {
 	if !ok {
 		t.Fatal(errShouldPrefCommit)
 	} else if abort, ok := options[1].(*Abort); !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := block.Verify(); err != nil { // Accept the block
-		t.Fatal(err)
-	} else if err := block.Accept(); err != nil {
+		t.Fatal(errShouldPrefCommit)
+	} else if err := block.Accept(); err != nil { // Accept the block
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(block); err != nil { // Normally done by the engine
 		t.Fatalf("couldn't save block: %s", err)
@@ -1059,6 +1158,8 @@ func TestCreateSubnet(t *testing.T) {
 	blk, err = vm.BuildBlock() // should be advance time tx
 	if err != nil {
 		t.Fatal(err)
+	} else if err := blk.Verify(); err != nil {
+		t.Fatal(err)
 	}
 
 	// Assert preferences are correct
@@ -1072,9 +1173,7 @@ func TestCreateSubnet(t *testing.T) {
 	if !ok {
 		t.Fatal(errShouldPrefCommit)
 	} else if abort, ok := options[1].(*Abort); !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := block.Verify(); err != nil {
-		t.Fatal(err)
+		t.Fatal(errShouldPrefCommit)
 	} else if err := block.Accept(); err != nil {
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(block); err != nil { // Normally done by the engine
@@ -1112,6 +1211,8 @@ func TestCreateSubnet(t *testing.T) {
 	blk, err = vm.BuildBlock() // should be advance time tx
 	if err != nil {
 		t.Fatal(err)
+	} else if err := blk.Verify(); err != nil {
+		t.Fatal(err)
 	}
 
 	// Assert preferences are correct
@@ -1125,9 +1226,7 @@ func TestCreateSubnet(t *testing.T) {
 	if !ok {
 		t.Fatal(errShouldPrefCommit)
 	} else if abort, ok := options[1].(*Abort); !ok {
-		t.Fatal(errShouldPrefAbort)
-	} else if err := block.Verify(); err != nil {
-		t.Fatal(err)
+		t.Fatal(errShouldPrefCommit)
 	} else if err := block.Accept(); err != nil {
 		t.Fatal(err)
 	} else if err := vm.SaveBlock(block); err != nil { // Normally done by the engine
@@ -1597,7 +1696,15 @@ func TestBootstrapPartiallyAccepted(t *testing.T) {
 	beacons := vdrs
 
 	timeoutManager := timeout.Manager{}
-	timeoutManager.Initialize("", prometheus.NewRegistry())
+	timeoutManager.Initialize(&timer.AdaptiveTimeoutConfig{
+		InitialTimeout:    10 * time.Second,
+		MinimumTimeout:    500 * time.Millisecond,
+		MaximumTimeout:    10 * time.Second,
+		TimeoutMultiplier: 1.1,
+		TimeoutReduction:  time.Millisecond,
+		Namespace:         "",
+		Registerer:        prometheus.NewRegistry(),
+	})
 	go timeoutManager.Dispatch()
 
 	chainRouter := &router.ChainRouter{}
