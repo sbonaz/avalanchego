@@ -124,7 +124,10 @@ func (t *Transitive) finishBootstrapping() error {
 	}
 
 	t.Ctx.Log.Info("bootstrapping finished with %d vertices in the accepted frontier", len(frontier))
-	return t.Consensus.Initialize(t.Ctx, t.Params, frontier, t.GetVertex)
+	if err := t.Consensus.Initialize(t.Ctx, t.Params, frontier, t.GetVertex); err != nil {
+		return fmt.Errorf("couldn't initialize consensus instance: %w", err)
+	}
+	return nil
 }
 
 // Gossip implements the Engine interface
