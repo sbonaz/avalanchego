@@ -94,6 +94,8 @@ func (v *voter) Update() {
 	v.t.repoll()
 }
 
+// We assume that the number of blocks that require votes to be bubbled
+// is sufficiently small to fit into the dropped cache.
 func (v *voter) bubbleVotes(votes ids.Bag) ids.Bag {
 	bubbledVotes := ids.Bag{}
 	var err error
