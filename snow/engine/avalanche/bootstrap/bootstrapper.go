@@ -213,7 +213,7 @@ func (b *Bootstrapper) process(vtxs ...avalanche.Vertex) error {
 			for _, parentID := range parentIDs { // Process the parents of this vertex (traverse up the DAG)
 				if _, ok := b.processedCache.Get(parentID); !ok { // But only if we haven't processed the parent
 					parent, err := b.Manager.GetVertex(parentID)
-					if err != nil || !parent.Status.Fetched() {
+					if err != nil || !parent.Status().Fetched() {
 						b.needToFetch.Add(parentID) // We don't have this vertex locally. Mark that we need to fetch it.
 					} else {
 						toProcess.Push(parent)
