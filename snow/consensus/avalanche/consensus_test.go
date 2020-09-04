@@ -52,6 +52,7 @@ func ConsensusTest(t *testing.T, factory Factory) {
 
 func MetricsTest(t *testing.T, factory Factory) {
 	ctx := snow.DefaultContextTest()
+	vtxGetter := &testVertexGetter{}
 
 	{
 		avl := factory.New()
@@ -71,7 +72,7 @@ func MetricsTest(t *testing.T, factory Factory) {
 			Namespace: params.Namespace,
 			Name:      "vtx_processing",
 		}))
-		avl.Initialize(ctx, params, nil)
+		avl.Initialize(ctx, params, nil, vtxGetter)
 	}
 	{
 		avl := factory.New()
@@ -91,7 +92,7 @@ func MetricsTest(t *testing.T, factory Factory) {
 			Namespace: params.Namespace,
 			Name:      "vtx_accepted",
 		}))
-		avl.Initialize(ctx, params, nil)
+		avl.Initialize(ctx, params, nil, vtxGetter)
 	}
 	{
 		avl := factory.New()
@@ -111,12 +112,13 @@ func MetricsTest(t *testing.T, factory Factory) {
 			Namespace: params.Namespace,
 			Name:      "vtx_rejected",
 		}))
-		avl.Initialize(ctx, params, nil)
+		avl.Initialize(ctx, params, nil, vtxGetter)
 	}
 }
 
 func ParamsTest(t *testing.T, factory Factory) {
 	avl := factory.New()
+	vtxGetter := &testVertexGetter{}
 
 	ctx := snow.DefaultContextTest()
 	params := Parameters{
@@ -133,7 +135,7 @@ func ParamsTest(t *testing.T, factory Factory) {
 		BatchSize: 1,
 	}
 
-	if err := avl.Initialize(ctx, params, nil); err != nil {
+	if err := avl.Initialize(ctx, params, nil, vtxGetter); err != nil {
 		t.Fatal(err)
 	}
 
@@ -175,9 +177,23 @@ func AddTest(t *testing.T, factory Factory) {
 			StatusV: choices.Accepted,
 		}},
 	}
+	vtxGetter := &testVertexGetter{
+		GetVertexF: func(id ids.ID) (Vertex, error) {
+			if id.Equals(vts[0].ID()) {
+				return vts[0], nil
+			} else if id.Equals(vts[1].ID()) {
+				return vts[1], nil
+			} else if id.Equals(vts[1].ID()) {
+				return vts[1], nil
+			}
+			t.Fatal("asked for unexpected vtx")
+			return nil, errors.New("")
+		},
+	}
+
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	if err := avl.Initialize(snow.DefaultContextTest(), params, vts); err != nil {
+	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter); err != nil {
 		t.Fatal(err)
 	}
 
@@ -202,10 +218,24 @@ func AddTest(t *testing.T, factory Factory) {
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx0},
 	}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
 
-	if acc, rej, err := avl.Add(vtx0); err != nil {
+	acc, rej, err := avl.Add(vtx0)
+	if err != nil {
 		t.Fatal(err)
-	} else if acc.Len() != 0 || rej.Len() != 0 {
+	}
+
+	if acc.Len() != 0 || rej.Len() != 0 {
 		t.Fatalf("should have accepted/rejected %d/%d but got %d/%d",
 			0, 0, acc.Len(), rej.Len())
 	} else if avl.Finalized() {
@@ -228,6 +258,19 @@ func AddTest(t *testing.T, factory Factory) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx1},
+	}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx1); err != nil {
@@ -287,7 +330,18 @@ func VertexIssuedTest(t *testing.T, factory Factory) {
 	}
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	if err := avl.Initialize(snow.DefaultContextTest(), params, vts); err != nil {
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+
+	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter); err != nil {
 		t.Fatal(err)
 	}
 
@@ -309,6 +363,17 @@ func VertexIssuedTest(t *testing.T, factory Factory) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx},
+	}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx.ID()) {
+			return vtx, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if avl.VertexIssued(vtx) {
@@ -358,7 +423,16 @@ func TxIssuedTest(t *testing.T, factory Factory) {
 	}}
 	tx1.InputIDsV.Add(utxos[0])
 
-	if err := avl.Initialize(snow.DefaultContextTest(), params, vts); err != nil {
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+
+	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter); err != nil {
 		t.Fatal(err)
 	}
 
@@ -376,7 +450,13 @@ func TxIssuedTest(t *testing.T, factory Factory) {
 		HeightV: 1,
 		TxsV:    []snowstorm.Tx{tx1},
 	}
-
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vtx.ID()) {
+			return vtx, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
 	if acc, rej, err := avl.Add(vtx); err != nil {
 		t.Fatal(err)
 	} else if acc.Len() != 0 || rej.Len() != 0 {
@@ -414,7 +494,18 @@ func VirtuousTest(t *testing.T, factory Factory) {
 	}
 	utxos := []ids.ID{ids.GenerateTestID(), ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	if virtuous := avl.Virtuous(); virtuous.Len() != 2 {
 		t.Fatalf("Wrong number of virtuous.")
@@ -470,6 +561,22 @@ func VirtuousTest(t *testing.T, factory Factory) {
 		ParentsV: []Vertex{vtx0},
 		HeightV:  2,
 		TxsV:     []snowstorm.Tx{tx2},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		} else if id.Equals(vtx2.ID()) {
+			return vtx2, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err != nil {
@@ -562,7 +669,17 @@ func VirtuousSkippedUpdateTest(t *testing.T, factory Factory) {
 		ids.GenerateTestID(),
 	}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	if virtuous := avl.Virtuous(); virtuous.Len() != 2 {
 		t.Fatalf("Wrong number of virtuous.")
@@ -602,6 +719,19 @@ func VirtuousSkippedUpdateTest(t *testing.T, factory Factory) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx1},
+	}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err != nil {
@@ -661,7 +791,17 @@ func VotingTest(t *testing.T, factory Factory) {
 	}
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -695,6 +835,20 @@ func VotingTest(t *testing.T, factory Factory) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx1},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	// Add both vertices to consensus
@@ -767,7 +921,18 @@ func IgnoreInvalidVotingTest(t *testing.T, factory Factory) {
 	}
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	if err := avl.Initialize(snow.DefaultContextTest(), params, vts); err != nil {
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+
+	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter); err != nil {
 		t.Fatal(err)
 	}
 
@@ -801,6 +966,20 @@ func IgnoreInvalidVotingTest(t *testing.T, factory Factory) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx1},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err != nil {
@@ -860,7 +1039,18 @@ func TransitiveVotingTest(t *testing.T, factory Factory) {
 	}
 	utxos := []ids.ID{ids.GenerateTestID(), ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	// tx0 and tx1 don't conflict
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
@@ -905,7 +1095,21 @@ func TransitiveVotingTest(t *testing.T, factory Factory) {
 		HeightV:  3,
 		TxsV:     []snowstorm.Tx{tx1},
 	}
-
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		} else if id.Equals(vtx2.ID()) {
+			return vtx2, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
 	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
 	} else if acc.Len() != 0 || rej.Len() != 0 {
@@ -989,7 +1193,17 @@ func SplitVotingTest(t *testing.T, factory Factory) {
 	}
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1017,6 +1231,19 @@ func SplitVotingTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx0},
 	}
 
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
 	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
 	} else if acc.Len() != 0 || rej.Len() != 0 {
@@ -1075,7 +1302,17 @@ func TransitiveRejectionTest(t *testing.T, factory Factory) {
 	}
 	utxos := []ids.ID{ids.GenerateTestID(), ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	// tx0 and tx1 conflict
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
@@ -1125,6 +1362,22 @@ func TransitiveRejectionTest(t *testing.T, factory Factory) {
 		ParentsV: []Vertex{vtx0},
 		HeightV:  2,
 		TxsV:     []snowstorm.Tx{tx2},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		} else if id.Equals(vtx2.ID()) {
+			return vtx2, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err != nil {
@@ -1216,7 +1469,17 @@ func IsVirtuousTest(t *testing.T, factory Factory) {
 	}
 	utxos := []ids.ID{ids.GenerateTestID(), ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	if virtuous := avl.Virtuous(); virtuous.Len() != 2 {
 		t.Fatalf("Wrong number of virtuous.")
@@ -1256,6 +1519,20 @@ func IsVirtuousTest(t *testing.T, factory Factory) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx1},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if !avl.IsVirtuous(tx0) {
@@ -1310,7 +1587,18 @@ func QuiesceTest(t *testing.T, factory Factory) {
 	}
 	utxos := []ids.ID{ids.GenerateTestID(), ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1358,6 +1646,22 @@ func QuiesceTest(t *testing.T, factory Factory) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx2},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		} else if id.Equals(vtx2.ID()) {
+			return vtx2, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err != nil {
@@ -1424,7 +1728,17 @@ func OrphansTest(t *testing.T, factory Factory) {
 	}
 	utxos := []ids.ID{ids.GenerateTestID(), ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1472,6 +1786,22 @@ func OrphansTest(t *testing.T, factory Factory) {
 		ParentsV: []Vertex{vtx0},
 		HeightV:  2,
 		TxsV:     []snowstorm.Tx{tx2},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		} else if id.Equals(vtx2.ID()) {
+			return vtx2, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err != nil {
@@ -1531,7 +1861,16 @@ func ErrorOnVacuousAcceptTest(t *testing.T, factory Factory) {
 		StatusV: choices.Accepted,
 	}}}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1547,6 +1886,18 @@ func ErrorOnVacuousAcceptTest(t *testing.T, factory Factory) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx0},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vts[1].ID()) {
+			return vts[1], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err == nil {
@@ -1578,7 +1929,15 @@ func ErrorOnTxAcceptTest(t *testing.T, factory Factory) {
 	}}}
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1597,6 +1956,15 @@ func ErrorOnTxAcceptTest(t *testing.T, factory Factory) {
 		TxsV:     []snowstorm.Tx{tx0},
 	}
 
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
 	if acc, rej, err := avl.Add(vtx0); err != nil {
 		t.Fatal(err)
 	} else if acc.Len() != 0 || rej.Len() != 0 {
@@ -1635,7 +2003,15 @@ func ErrorOnVtxAcceptTest(t *testing.T, factory Factory) {
 	}}}
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1652,6 +2028,16 @@ func ErrorOnVtxAcceptTest(t *testing.T, factory Factory) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx0},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err != nil {
@@ -1692,7 +2078,15 @@ func ErrorOnVtxRejectTest(t *testing.T, factory Factory) {
 	}}}
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1725,6 +2119,18 @@ func ErrorOnVtxRejectTest(t *testing.T, factory Factory) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx1},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err != nil {
@@ -1770,7 +2176,15 @@ func ErrorOnParentVtxRejectTest(t *testing.T, factory Factory) {
 	}}}
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1813,6 +2227,20 @@ func ErrorOnParentVtxRejectTest(t *testing.T, factory Factory) {
 		ParentsV: []Vertex{vtx1},
 		HeightV:  2,
 		TxsV:     []snowstorm.Tx{tx1},
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		} else if id.Equals(vtx2.ID()) {
+			return vtx2, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err != nil {
@@ -1863,7 +2291,15 @@ func ErrorOnTransitiveVtxRejectTest(t *testing.T, factory Factory) {
 	}}}
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts)
+	vtxGetter := &testVertexGetter{}
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
+	}
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1905,6 +2341,20 @@ func ErrorOnTransitiveVtxRejectTest(t *testing.T, factory Factory) {
 		},
 		ParentsV: []Vertex{vtx1},
 		HeightV:  1,
+	}
+
+	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
+		if id.Equals(vts[0].ID()) {
+			return vts[0], nil
+		} else if id.Equals(vtx0.ID()) {
+			return vtx0, nil
+		} else if id.Equals(vtx1.ID()) {
+			return vtx1, nil
+		} else if id.Equals(vtx2.ID()) {
+			return vtx2, nil
+		}
+		t.Fatal("asked for unexpected vtx")
+		return nil, errors.New("")
 	}
 
 	if acc, rej, err := avl.Add(vtx0); err != nil {

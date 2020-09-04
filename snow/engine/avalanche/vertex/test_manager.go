@@ -17,18 +17,21 @@ var (
 	errBuildVertex = errors.New("unexpectedly called BuildVertex")
 	errGetVertex   = errors.New("unexpectedly called GetVertex")
 	errEdge        = errors.New("unexpectedly called Edge")
+	errSaveVertex  = errors.New("unexpectedly called SaveVertex")
 )
 
 // TestManager ...
 type TestManager struct {
 	T *testing.T
 
-	CantParseVertex, CantBuildVertex, CantGetVertex, CantEdge bool
+	CantParseVertex, CantBuildVertex,
+	CantGetVertex, CantEdge, CantSaveVertex bool
 
 	ParseVertexF func([]byte) (avalanche.Vertex, error)
 	BuildVertexF func(ids.Set, []snowstorm.Tx) (avalanche.Vertex, error)
 	GetVertexF   func(ids.ID) (avalanche.Vertex, error)
 	EdgeF        func() []ids.ID
+	SaveVertexF  func(vtx avalanche.Vertex) error
 }
 
 // Default ...
@@ -37,6 +40,7 @@ func (m *TestManager) Default(cant bool) {
 	m.CantBuildVertex = cant
 	m.CantGetVertex = cant
 	m.CantEdge = cant
+	m.CantSaveVertex = cant
 }
 
 // ParseVertex ...
@@ -79,6 +83,17 @@ func (m *TestManager) Edge() []ids.ID {
 	}
 	if m.CantEdge && m.T != nil {
 		m.T.Fatal(errEdge)
+	}
+	return nil
+}
+
+// SaveVertex ...
+func (m *TestManager) SaveVertex(vtx avalanche.Vertex) error {
+	if m.SaveVertexF != nil {
+		return m.SaveVertexF(vtx)
+	}
+	if m.CantSaveVertex && m.T != nil {
+		m.T.Fatal(errSaveVertex)
 	}
 	return nil
 }

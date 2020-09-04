@@ -4,6 +4,7 @@
 package avalanche
 
 import (
+	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/snow/choices"
 	"github.com/ava-labs/gecko/snow/consensus/snowstorm"
 )
@@ -22,7 +23,13 @@ type TestVertex struct {
 }
 
 // Parents implements the Vertex interface
-func (v *TestVertex) Parents() ([]Vertex, error) { return v.ParentsV, v.ParentsErrV }
+func (v *TestVertex) Parents() ([]ids.ID, error) {
+	ids := make([]ids.ID, len(v.ParentsV))
+	for i, parent := range v.ParentsV {
+		ids[i] = parent.ID()
+	}
+	return ids, v.ParentsErrV
+}
 
 // Height implements the Vertex interface
 func (v *TestVertex) Height() (uint64, error) { return v.HeightV, v.HeightErrV }
@@ -32,3 +39,16 @@ func (v *TestVertex) Txs() ([]snowstorm.Tx, error) { return v.TxsV, v.TxsErrV }
 
 // Bytes implements the Vertex interface
 func (v *TestVertex) Bytes() []byte { return v.BytesV }
+
+// TestVertexGetter the VertexGetter interface
+type testVertexGetter struct {
+	GetVertexF func(ids.ID) (Vertex, error)
+}
+
+// GetVertex ...
+func (g *testVertexGetter) GetVertex(id ids.ID) (Vertex, error) {
+	if g.GetVertexF == nil {
+		panic("unexpectedly called GetVertex")
+	}
+	return g.GetVertexF(id)
+}
