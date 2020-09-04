@@ -36,7 +36,7 @@ type Topological struct {
 
 	// Gets a vertex by its ID.
 	// Returns error if the vertex was not found.
-	getVertexF func(ids.ID) (Vertex, error)
+	VertexGetter
 
 	// Context used for logging
 	ctx *snow.Context
@@ -73,7 +73,7 @@ func (ta *Topological) Initialize(
 	ctx *snow.Context,
 	params Parameters,
 	frontier []Vertex,
-	getVertexF func(ids.ID) (Vertex, error),
+	vertexGetter VertexGetter,
 ) error {
 	if err := params.Valid(); err != nil {
 		return err
@@ -81,7 +81,7 @@ func (ta *Topological) Initialize(
 
 	ta.ctx = ctx
 	ta.params = params
-	ta.getVertexF = getVertexF
+	ta.VertexGetter = vertexGetter
 
 	if err := ta.metrics.Initialize(ctx.Log, params.Namespace, params.Metrics); err != nil {
 		return err
@@ -267,7 +267,7 @@ func (ta *Topological) markAncestorInDegrees(
 ) (map[[32]byte]kahnNode, ids.Set, error) {
 	frontier := make([]Vertex, 0, len(parentIDs))
 	for _, parentID := range parentIDs {
-		parent, err := ta.getVertex(parentID)
+		parent, err := ta.GetVertex(parentID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("couldn't get vertex %s", parentID)
 		}
@@ -303,7 +303,7 @@ func (ta *Topological) markAncestorInDegrees(
 				return nil, nil, err
 			}
 			for _, parentID := range parentIDs {
-				parent, err := ta.getVertex(parentID)
+				parent, err := ta.GetVertex(parentID)
 				if err != nil {
 					return nil, nil, fmt.Errorf("couldn't get vertex %s", parentID)
 				}
@@ -401,7 +401,7 @@ func (ta *Topological) pushVotes(
 //      Nil if there are none.
 func (ta *Topological) update(vtxID ids.ID) (ids.Set, ids.Set, error) {
 	vtxKey := vtxID.Key()
-	vtx, err := ta.getVertex(vtxID)
+	vtx, err := ta.GetVertex(vtxID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("couldn't update vertex %s: not found", vtxID)
 	}
@@ -476,7 +476,7 @@ func (ta *Topological) update(vtxID ids.ID) (ids.Set, ids.Set, error) {
 
 	// Check my parent statuses
 	for _, parentID := range parentIDs {
-		parent, err := ta.getVertex(parentID)
+		parent, err := ta.GetVertex(parentID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("couldn't get vertex %s", parentID)
 		}
@@ -589,8 +589,4 @@ func (ta *Topological) updateFrontiers() (ids.Set, ids.Set, error) {
 		rejected.Union(rej)
 	}
 	return accepted, rejected, nil
-}
-
-func (ta *Topological) getVertex(vtxID ids.ID) (Vertex, error) {
-	return ta.getVertexF(vtxID)
 }

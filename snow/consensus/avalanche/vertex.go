@@ -26,3 +26,8 @@ type Vertex interface {
 	// Returns the binary representation of this vertex
 	Bytes() []byte
 }
+
+// VertexGetter can get vertices
+type VertexGetter interface {
+	GetVertex(ids.ID) (Vertex, error)
+}

@@ -26,7 +26,7 @@ type Consensus interface {
 	Initialize(*snow.Context,
 		Parameters,
 		[]Vertex,
-		func(ids.ID) (Vertex, error)) error
+		VertexGetter) error
 
 	// Returns the parameters that describe this avalanche instance
 	Parameters() Parameters

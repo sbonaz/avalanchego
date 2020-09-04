@@ -43,6 +43,8 @@ type Transitive struct {
 	bootstrap.Bootstrapper
 	metrics
 
+	vertex.Manager
+
 	Params    avalanche.Parameters
 	Consensus avalanche.Consensus
 
@@ -91,6 +93,11 @@ func (t *Transitive) Initialize(config Config) error {
 	t.droppedCache = cache.LRU{Size: droppedCacheSize}
 	t.Params = config.Params
 	t.Consensus = config.Consensus
+	t.Manager = &managerWrapper{
+		t:       t,
+		Manager: config.Manager,
+	}
+	config.Manager = t.Manager
 
 	factory := poll.NewEarlyTermNoTraversalFactory(int(config.Params.Alpha))
 	t.polls = poll.NewSet(factory,
@@ -124,7 +131,7 @@ func (t *Transitive) finishBootstrapping() error {
 	}
 
 	t.Ctx.Log.Info("bootstrapping finished with %d vertices in the accepted frontier", len(frontier))
-	if err := t.Consensus.Initialize(t.Ctx, t.Params, frontier, t.GetVertex); err != nil {
+	if err := t.Consensus.Initialize(t.Ctx, t.Params, frontier, t.Manager); err != nil {
 		return fmt.Errorf("couldn't initialize consensus instance: %w", err)
 	}
 	return nil
@@ -672,4 +679,25 @@ func (t *Transitive) GetVertex(id ids.ID) (avalanche.Vertex, error) {
 	}
 	// Not processing. Check the database.
 	return t.Manager.GetVertex(id)
+}
+
+// A vertex.Manager instance where the GetVertex function is replaced
+type managerWrapper struct {
+	t *Transitive
+	vertex.Manager
+}
+
+// GetVertex gets a vertex by its ID.
+// If vertex can't be found, returns an error.
+func (mw *managerWrapper) GetVertex(id ids.ID) (avalanche.Vertex, error) {
+	// Check the processing set
+	if vtx, ok := mw.t.processing[id.Key()]; ok {
+		return vtx, nil
+	}
+	// Check the cache of recently dropped vertices
+	if vtx, ok := mw.t.droppedCache.Get(id); ok {
+		return vtx.(avalanche.Vertex), nil
+	}
+	// Not processing. Check the database.
+	return mw.Manager.GetVertex(id)
 }

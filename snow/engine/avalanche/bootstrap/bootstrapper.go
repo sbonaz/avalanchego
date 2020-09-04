@@ -50,8 +50,8 @@ type Bootstrapper struct {
 	// TxBlocked tracks operations that are blocked on transactions
 	VtxBlocked, TxBlocked *queue.Jobs
 
-	Manager vertex.Manager
-	VM      vertex.DAGVM
+	vertex.Manager
+	VM vertex.DAGVM
 
 	// IDs of vertices that we will send a GetAncestors request for once we are
 	// not at the max number of outstanding requests
