@@ -245,6 +245,7 @@ func (t *Transitive) Put(vdr ids.ShortID, requestID uint32, vtxID ids.ID, vtxByt
 		vtxID := vtx.ID()
 		t.processing[vtxID.Key()] = vtx
 		t.droppedCache.Evict(vtxID)
+		t.Ctx.Log.Info("adding %s to processing", vtxID) // TODO remove
 		// t.numProcessing.Set(float64(len(t.processing))) TODO add metric
 	}
 	_, err = t.issueFrom(vdr, vtx)
@@ -331,6 +332,7 @@ func (t *Transitive) PushQuery(vdr ids.ShortID, requestID uint32, vtxID ids.ID, 
 	} else if vtx.Status() == choices.Processing { // Pin this block in memory until it's decided or dropped
 		t.processing[vtxID.Key()] = vtx
 		t.droppedCache.Evict(vtxID)
+		t.Ctx.Log.Info("adding %s to processing", vtxID) // TODO remove
 		// t.numProcessing.Set(float64(len(t.processing))) TODO add metric
 	}
 
@@ -658,6 +660,7 @@ func (t *Transitive) issueBatch(txs []snowstorm.Tx) error {
 	vtxID := vtx.ID()
 	t.processing[vtxID.Key()] = vtx
 	t.droppedCache.Evict(vtxID)
+	t.Ctx.Log.Info("adding %s to processing", vtxID) // TODO remove
 	//t.numProcessing.Set(float64(len(t.processing))) todo add metric
 	return t.issue(vtx)
 }

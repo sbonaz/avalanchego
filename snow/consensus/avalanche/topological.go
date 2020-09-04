@@ -40,11 +40,13 @@ type Topological struct {
 
 	// Context used for logging
 	ctx *snow.Context
+
 	// Threshold for confidence increases
 	params Parameters
 
 	// Maps vtxID -> vtx
 	nodes map[[32]byte]Vertex
+
 	// Tracks the conflict relations
 	cg snowstorm.Consensus
 
@@ -410,11 +412,9 @@ func (ta *Topological) update(vtxID ids.ID) (ids.Set, ids.Set, error) {
 
 	switch vtx.Status() {
 	case choices.Accepted:
-		ta.preferred.Add(vtxID) // I'm preferred
-		ta.virtuous.Add(vtxID)  // Accepted is defined as virtuous
-
+		ta.preferred.Add(vtxID)   // I'm preferred
+		ta.virtuous.Add(vtxID)    // Accepted is defined as virtuous
 		ta.frontier[vtxKey] = vtx // I have no descendents yet
-
 		ta.preferenceCache[vtxKey] = true
 		ta.virtuousCache[vtxKey] = true
 		return nil, nil, nil

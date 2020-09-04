@@ -67,11 +67,13 @@ func (v *voter) Update() {
 			v.t.errs.Add(err)
 			return
 		}
-		delete(v.t.processing, acceptedID.Key())
+		v.t.Ctx.Log.Info("removing %s from processing", acceptedID) // TODO remove
+		delete(v.t.processing, acceptedIDKey)
 	}
 	for _, rejectedID := range rejected.List() {
 		v.t.decidedCache.Put(rejectedID, nil)
-		v.t.droppedCache.Evict(rejectedID) // Remove from dropped cache, if it was in there
+		v.t.droppedCache.Evict(rejectedID)                          // Remove from dropped cache, if it was in there
+		v.t.Ctx.Log.Info("removing %s from processing", rejectedID) // TODO remove
 		delete(v.t.processing, rejectedID.Key())
 	}
 

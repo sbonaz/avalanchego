@@ -38,6 +38,7 @@ func (i *issuer) Abandon() {
 		i.t.pending.Remove(vtxID)
 		i.abandoned = true
 		// We're dropping this vertex; unpin it from memory
+		i.t.Ctx.Log.Info("removing %s from processing", vtxID) // TODO remove
 		delete(i.t.processing, vtxID.Key())
 		i.t.droppedCache.Put(vtxID, i.vtx)
 		i.t.vtxBlocked.Abandon(vtxID) // Inform vertices waiting on this vtx that it won't be issued
@@ -97,6 +98,7 @@ func (i *issuer) Update() {
 		vtx, ok := i.t.processing[acceptedIDKey] // The vertex we're accepting
 		if !ok {
 			err := fmt.Errorf("couldn't find accepted vertex %s in processing list. Vertex not saved to VM's database", acceptedID)
+			i.t.Ctx.Log.Info("issuer for %s", i.vtx.ID()) // TODO remove
 			i.t.errs.Add(err)
 			return
 		} else if err := i.t.Manager.SaveVertex(vtx); err != nil { // Persist accepted vertex
@@ -104,11 +106,13 @@ func (i *issuer) Update() {
 			i.t.errs.Add(err)
 			return
 		}
+		i.t.Ctx.Log.Info("removing %s from processing", acceptedID) // TODO remove
 		delete(i.t.processing, acceptedID.Key())
 	}
 	for _, rejectedID := range rejected.List() {
 		i.t.decidedCache.Put(rejectedID, nil)
-		i.t.droppedCache.Evict(rejectedID) // Remove from dropped cache, if it was in there
+		i.t.droppedCache.Evict(rejectedID)                          // Remove from dropped cache, if it was in there
+		i.t.Ctx.Log.Info("removing %s from processing", rejectedID) // TODO remove
 		delete(i.t.processing, rejectedID.Key())
 	}
 
