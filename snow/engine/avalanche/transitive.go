@@ -431,7 +431,7 @@ func (t *Transitive) issueFromByID(vdr ids.ShortID, vtxID ids.ID) (bool, error) 
 // Assumes we have [vtx] locally
 // Returns true if [vtx] has been added to consensus (now or previously)
 func (t *Transitive) issueFrom(vdr ids.ShortID, vtx avalanche.Vertex) (bool, error) {
-	issued := true
+	origVtx := vtx
 	// Before we issue [vtx] into consensus, we have to issue its ancestors.
 	// Go through [vtx] and its ancestors. issue each ancestor that hasn't yet been issued.
 	// If we find a missing ancestor, fetch it and note that we can't issue [vtx] yet.
@@ -442,11 +442,10 @@ func (t *Transitive) issueFrom(vdr ids.ShortID, vtx avalanche.Vertex) (bool, err
 
 		if t.Consensus.VertexIssued(vtx) {
 			// This vertex has been issued --> its ancestors have been issued.
-			// No need to try to issue it or its ancestors
+			// No need to try to issue it or its ancestors again.
 			continue
 		}
 		if t.pending.Contains(vtx.ID()) {
-			issued = false
 			continue
 		}
 
@@ -460,8 +459,6 @@ func (t *Transitive) issueFrom(vdr ids.ShortID, vtx avalanche.Vertex) (bool, err
 			if err != nil || !parent.Status().Fetched() {
 				// We don't have the parent. Request it.
 				t.sendRequest(vdr, parentID)
-				// We're missing an ancestor so we can't have issued the vtx in this method's argument
-				issued = false
 			} else {
 				// Come back to this vertex later to make sure it and its ancestors have been fetched/issued
 				ancestry.Push(parent)
@@ -473,7 +470,7 @@ func (t *Transitive) issueFrom(vdr ids.ShortID, vtx avalanche.Vertex) (bool, err
 			return false, err
 		}
 	}
-	return issued, nil
+	return t.Consensus.VertexIssued(origVtx), nil
 }
 
 // issue queues [vtx] to be put into consensus after its dependencies are met.
