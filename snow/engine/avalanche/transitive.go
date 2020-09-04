@@ -666,21 +666,6 @@ func (t *Transitive) sendRequest(vdr ids.ShortID, vtxID ids.ID) {
 	t.numVtxRequests.Set(float64(t.outstandingVtxReqs.Len())) // Tracks performance statistics
 }
 
-// GetVertex gets a vertex by its ID.
-// If vertex can't be found, returns an error.
-func (t *Transitive) GetVertex(id ids.ID) (avalanche.Vertex, error) {
-	// Check the processing set
-	if vtx, ok := t.processing[id.Key()]; ok {
-		return vtx, nil
-	}
-	// Check the cache of recently dropped vertices
-	if vtx, ok := t.droppedCache.Get(id); ok {
-		return vtx.(avalanche.Vertex), nil
-	}
-	// Not processing. Check the database.
-	return t.Manager.GetVertex(id)
-}
-
 // A vertex.Manager instance where the GetVertex function is replaced
 type managerWrapper struct {
 	t *Transitive
