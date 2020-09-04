@@ -241,13 +241,6 @@ func (t *Transitive) Put(vdr ids.ShortID, requestID uint32, vtxID ids.ID, vtxByt
 		t.Ctx.Log.Verbo("vertex:\n%s", formatting.DumpBytes{Bytes: vtxBytes})
 		return t.GetFailed(vdr, requestID)
 	}
-	if vtx.Status() == choices.Processing { // Pin this block in memory until it's decided or dropped
-		vtxID := vtx.ID()
-		t.processing[vtxID.Key()] = vtx
-		t.droppedCache.Evict(vtxID)
-		t.Ctx.Log.Info("adding %s to processing", vtxID) // TODO remove
-		// t.numProcessing.Set(float64(len(t.processing))) TODO add metric
-	}
 	_, err = t.issueFrom(vdr, vtx)
 	return err
 }
@@ -329,11 +322,6 @@ func (t *Transitive) PushQuery(vdr ids.ShortID, requestID uint32, vtxID ids.ID, 
 		return nil
 	} else if gotID := vtx.ID(); !gotID.Equals(vtxID) {
 		return fmt.Errorf("expected vertex ID to be %s but got %s", vtxID, gotID)
-	} else if vtx.Status() == choices.Processing { // Pin this block in memory until it's decided or dropped
-		t.processing[vtxID.Key()] = vtx
-		t.droppedCache.Evict(vtxID)
-		t.Ctx.Log.Info("adding %s to processing", vtxID) // TODO remove
-		// t.numProcessing.Set(float64(len(t.processing))) TODO add metric
 	}
 
 	if _, err := t.issueFrom(vdr, vtx); err != nil {
@@ -415,14 +403,14 @@ func (t *Transitive) repoll() error {
 // Returns true if [vtx] has been added to consensus (now or previously)
 func (t *Transitive) issueFromByID(vdr ids.ShortID, vtxID ids.ID) (bool, error) {
 	if _, decided := t.decidedCache.Get(vtxID); decided {
-		// Block [blkID] was decided, so it must have been previously added to consensus.
+		// Vertex [vtxID] was decided, so it must have been previously added to consensus.
 		return true, nil
 	}
 	vtx, err := t.GetVertex(vtxID)
 	if err != nil {
 		// We don't have [vtxID]. Request it.
 		t.sendRequest(vdr, vtxID)
-		return false, nil
+		return false, nil // TODO is this right?
 	}
 	return t.issueFrom(vdr, vtx)
 }
@@ -477,6 +465,8 @@ func (t *Transitive) issueFrom(vdr ids.ShortID, vtx avalanche.Vertex) (bool, err
 // Assumes we have [vtx].
 func (t *Transitive) issue(vtx avalanche.Vertex) error {
 	vtxID := vtx.ID()
+	t.processing[vtxID.Key()] = vtx
+	t.droppedCache.Evict(vtxID)
 
 	// Add to set of vertices that have been queued up to be issued but haven't been yet
 	t.pending.Add(vtxID)
@@ -654,11 +644,6 @@ func (t *Transitive) issueBatch(txs []snowstorm.Tx) error {
 			len(parentIDs), len(txs))
 		return nil
 	}
-	vtxID := vtx.ID()
-	t.processing[vtxID.Key()] = vtx
-	t.droppedCache.Evict(vtxID)
-	t.Ctx.Log.Info("adding %s to processing", vtxID) // TODO remove
-	//t.numProcessing.Set(float64(len(t.processing))) todo add metric
 	return t.issue(vtx)
 }
 

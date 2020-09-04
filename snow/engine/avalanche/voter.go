@@ -67,13 +67,11 @@ func (v *voter) Update() {
 			v.t.errs.Add(err)
 			return
 		}
-		v.t.Ctx.Log.Info("removing %s from processing", acceptedID) // TODO remove
 		delete(v.t.processing, acceptedIDKey)
 	}
 	for _, rejectedID := range rejected.List() {
 		v.t.decidedCache.Put(rejectedID, nil)
-		v.t.droppedCache.Evict(rejectedID)                          // Remove from dropped cache, if it was in there
-		v.t.Ctx.Log.Info("removing %s from processing", rejectedID) // TODO remove
+		v.t.droppedCache.Evict(rejectedID) // Remove from dropped cache, if it was in there
 		delete(v.t.processing, rejectedID.Key())
 	}
 
@@ -106,7 +104,7 @@ func (v *voter) bubbleVotes(votes ids.UniqueBag) (ids.UniqueBag, error) {
 	bubbledVotes := ids.UniqueBag{}
 	vertexHeap := vertex.NewHeap()
 	for _, vote := range votes.List() {
-		vtx, err := v.t.Manager.GetVertex(vote)
+		vtx, err := v.t.GetVertex(vote)
 		if err != nil {
 			continue
 		}
