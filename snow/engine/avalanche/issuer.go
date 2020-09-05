@@ -80,6 +80,10 @@ func (i *issuer) Update() {
 		if err := i.t.batch(validTxs, false /*=force*/, false /*=empty*/); err != nil {
 			i.t.errs.Add(err)
 		}
+		delete(i.t.processing, vtxID.Key()) // Unpin from memory
+		i.t.droppedCache.Put(vtxID, i.vtx)
+		// i.t.numBlocked.Set(float64(t.pending.Len())) TODO add metric // Tracks performance statistics
+		// i.t.numProcessing.Set(float64(len(t.processing))) TODO add metric
 		i.t.vtxBlocked.Abandon(vtxID)
 		return
 	}
