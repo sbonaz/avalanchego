@@ -890,7 +890,7 @@ func TestRewardValidatorReject(t *testing.T) {
 
 // Test case where primary network validator is preferred to be rewarded
 func TestRewardValidatorPreferred(t *testing.T) {
-	vm, _ := defaultVM()
+	vm, _ := defaultVM(t)
 	vm.Ctx.Lock.Lock()
 	defer func() {
 		vm.Shutdown()
