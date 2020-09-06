@@ -148,6 +148,18 @@ func TestBootstrapperSingleFrontier(t *testing.T) {
 		t.Fatal(errParsedUnknownVertex)
 		return nil, errParsedUnknownVertex
 	}
+	manager.SaveVertexF = func(vtx avalanche.Vertex) error {
+		switch {
+		case vtx.ID().Equals(vtx0.ID()):
+			return nil
+		case vtx.ID().Equals(vtx1.ID()):
+			return nil
+		case vtx.ID().Equals(vtx2.ID()):
+			return nil
+		}
+		t.Fatal(errParsedUnknownVertex)
+		return errParsedUnknownVertex
+	}
 
 	vm.CantBootstrapping = false
 	vm.CantBootstrapped = false
@@ -294,6 +306,17 @@ func TestBootstrapperByzantineResponses(t *testing.T) {
 	}
 
 	vm.CantBootstrapped = false
+
+	manager.SaveVertexF = func(vtx avalanche.Vertex) error {
+		switch {
+		case vtx.ID().Equals(vtx0.ID()):
+			return nil
+		case vtx.ID().Equals(vtx1.ID()):
+			return nil
+		}
+		t.Fatal(errUnknownVertex)
+		return errUnknownVertex
+	}
 
 	if err := bs.MultiPut(peerID, *requestID, [][]byte{vtxBytes0, vtxBytes2}); err != nil { // send expected vertex and vertex that should not be accepted
 		t.Fatal(err)
@@ -445,6 +468,17 @@ func TestBootstrapperTxDependencies(t *testing.T) {
 			return vtx1, nil
 		case bytes.Equal(vtxBytes, vtxBytes0):
 			vtx0.StatusV = choices.Processing
+			manager.GetVertexF = func(vtxID ids.ID) (avalanche.Vertex, error) {
+				switch {
+				case vtxID.Equals(vtxID1):
+					return vtx1, nil
+				case vtxID.Equals(vtxID0):
+					return vtx0, nil
+				default:
+					t.Fatal(errUnknownVertex)
+					panic(errUnknownVertex)
+				}
+			}
 			return vtx0, nil
 		}
 		t.Fatal(errParsedUnknownVertex)
@@ -452,6 +486,17 @@ func TestBootstrapperTxDependencies(t *testing.T) {
 	}
 
 	vm.CantBootstrapped = false
+
+	manager.SaveVertexF = func(vtx avalanche.Vertex) error {
+		switch {
+		case vtx.ID().Equals(vtx0.ID()):
+			return nil
+		case vtx.ID().Equals(vtx1.ID()):
+			return nil
+		}
+		t.Fatal(errUnknownVertex)
+		return errUnknownVertex
+	}
 
 	if err := bs.MultiPut(peerID, *reqIDPtr, [][]byte{vtxBytes0}); err != nil {
 		t.Fatal(err)
@@ -471,7 +516,7 @@ func TestBootstrapperTxDependencies(t *testing.T) {
 		t.Fatalf("Vertex should be accepted")
 	}
 	if vtx1.Status() != choices.Accepted {
-		t.Fatalf("Vertex should be accepted")
+		t.Fatalf("Vertex should be accepted but is %s", vtx1.Status())
 	}
 }
 
@@ -585,6 +630,15 @@ func TestBootstrapperMissingTxDependency(t *testing.T) {
 	}
 
 	vm.CantBootstrapped = false
+
+	manager.SaveVertexF = func(vtx avalanche.Vertex) error {
+		switch {
+		case vtx.ID().Equals(vtx0.ID()):
+			return nil
+		}
+		t.Fatal(errUnknownVertex)
+		return errUnknownVertex
+	}
 
 	if err := bs.MultiPut(peerID, *reqIDPtr, [][]byte{vtxBytes0}); err != nil {
 		t.Fatal(err)
@@ -783,9 +837,21 @@ func TestBootstrapperIncompleteMultiPut(t *testing.T) {
 		case bytes.Equal(vtxBytes, vtxBytes0):
 			vtx0.StatusV = choices.Processing
 			return vtx0, nil
-
 		case bytes.Equal(vtxBytes, vtxBytes1):
 			vtx1.StatusV = choices.Processing
+			manager.GetVertexF = func(vtxID ids.ID) (avalanche.Vertex, error) {
+				switch {
+				case vtxID.Equals(vtxID0):
+					return nil, errUnknownVertex
+				case vtxID.Equals(vtxID1):
+					return vtx1, nil
+				case vtxID.Equals(vtxID2):
+					return vtx2, nil
+				default:
+					t.Fatal(errUnknownVertex)
+					panic(errUnknownVertex)
+				}
+			}
 			return vtx1, nil
 		case bytes.Equal(vtxBytes, vtxBytes2):
 			return vtx2, nil
@@ -825,6 +891,46 @@ func TestBootstrapperIncompleteMultiPut(t *testing.T) {
 	}
 
 	vm.CantBootstrapped = false
+
+	manager.SaveVertexF = func(vtx avalanche.Vertex) error {
+		switch {
+		case vtx.ID().Equals(vtx0.ID()):
+			return nil
+		case vtx.ID().Equals(vtx1.ID()):
+			return nil
+		case vtx.ID().Equals(vtx2.ID()):
+			return nil
+		}
+		t.Fatal(errUnknownVertex)
+		return errUnknownVertex
+	}
+	manager.ParseVertexF = func(vtxBytes []byte) (avalanche.Vertex, error) {
+		switch {
+		case bytes.Equal(vtxBytes, vtxBytes0):
+			vtx0.StatusV = choices.Processing
+			manager.GetVertexF = func(vtxID ids.ID) (avalanche.Vertex, error) {
+				switch {
+				case vtxID.Equals(vtxID0):
+					return vtx0, nil
+				case vtxID.Equals(vtxID1):
+					return vtx1, nil
+				case vtxID.Equals(vtxID2):
+					return vtx2, nil
+				default:
+					t.Fatal(errUnknownVertex)
+					panic(errUnknownVertex)
+				}
+			}
+			return vtx0, nil
+		case bytes.Equal(vtxBytes, vtxBytes1):
+			vtx1.StatusV = choices.Processing
+			return vtx1, nil
+		case bytes.Equal(vtxBytes, vtxBytes2):
+			return vtx2, nil
+		}
+		t.Fatal(errParsedUnknownVertex)
+		return nil, errParsedUnknownVertex
+	}
 
 	if err := bs.MultiPut(peerID, *reqIDPtr, [][]byte{vtxBytes0}); err != nil { // Provide vtx0; can finish now
 		t.Fatal(err)
@@ -936,6 +1042,17 @@ func TestBootstrapperFinalized(t *testing.T) {
 	}
 
 	vm.CantBootstrapped = false
+
+	manager.SaveVertexF = func(vtx avalanche.Vertex) error {
+		switch {
+		case vtx.ID().Equals(vtx0.ID()):
+			return nil
+		case vtx.ID().Equals(vtx1.ID()):
+			return nil
+		}
+		t.Fatal(errUnknownVertex)
+		return errUnknownVertex
+	}
 
 	if err := bs.MultiPut(peerID, reqID, [][]byte{vtxBytes1, vtxBytes0}); err != nil {
 		t.Fatal(err)
@@ -1077,6 +1194,19 @@ func TestBootstrapperAcceptsMultiPutParents(t *testing.T) {
 	}
 
 	vm.CantBootstrapped = false
+
+	manager.SaveVertexF = func(vtx avalanche.Vertex) error {
+		switch {
+		case vtx.ID().Equals(vtx0.ID()):
+			return nil
+		case vtx.ID().Equals(vtx1.ID()):
+			return nil
+		case vtx.ID().Equals(vtx2.ID()):
+			return nil
+		}
+		t.Fatal(errUnknownVertex)
+		return errUnknownVertex
+	}
 
 	if err := bs.MultiPut(peerID, reqID, [][]byte{vtxBytes2, vtxBytes1, vtxBytes0}); err != nil {
 		t.Fatal(err)
