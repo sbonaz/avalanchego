@@ -75,6 +75,7 @@ type GetTxStatusReply struct {
 	Status choices.Status `json:"status"`
 }
 
+/* TODO uncomment
 // GetTxStatus returns the status of the specified transaction
 func (service *Service) GetTxStatus(r *http.Request, args *api.JsonTxID, reply *GetTxStatusReply) error {
 	service.vm.ctx.Log.Info("AVM: GetTxStatus called with %s", args.TxID)
@@ -111,6 +112,7 @@ func (service *Service) GetTx(r *http.Request, args *api.JsonTxID, reply *Format
 	reply.Tx.Bytes = tx.Bytes()
 	return nil
 }
+*/
 
 // Index is an address and an associated UTXO.
 // Marks a starting or stopping point when fetching UTXOs. Used for pagination.
@@ -256,6 +258,7 @@ type GetAssetDescriptionReply struct {
 	Denomination json.Uint8 `json:"denomination"`
 }
 
+/* TODO uncomment
 // GetAssetDescription creates an empty account with the name passed in
 func (service *Service) GetAssetDescription(_ *http.Request, args *GetAssetDescriptionArgs, reply *GetAssetDescriptionReply) error {
 	service.vm.ctx.Log.Info("AVM: GetAssetDescription called with %s", args.AssetID)
@@ -287,6 +290,7 @@ func (service *Service) GetAssetDescription(_ *http.Request, args *GetAssetDescr
 
 	return nil
 }
+*/
 
 // GetBalanceArgs are arguments for passing into GetBalance requests
 type GetBalanceArgs struct {

@@ -5,7 +5,6 @@ package avm
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/snow/choices"
@@ -20,15 +19,6 @@ var (
 	errUnknownTx       = errors.New("transaction is unknown")
 	errRejectedTx      = errors.New("transaction is rejected")
 )
-
-// UniqueTx provides a de-duplication service for txs. This only provides a
-// performance boost
-type UniqueTx struct {
-	*TxState
-
-	vm   *VM
-	txID ids.ID
-}
 
 // TxState ...
 type TxState struct {
@@ -45,6 +35,18 @@ type TxState struct {
 	status choices.Status
 }
 
+/*
+// UniqueTx provides a de-duplication service for txs. This only provides a
+// performance boost
+type UniqueTx struct {
+	*TxState
+
+	vm   *VM
+	txID ids.ID
+}
+*/
+
+/*
 func (tx *UniqueTx) refresh() {
 	tx.vm.numTxRefreshes.Inc()
 
@@ -96,73 +98,9 @@ func (tx *UniqueTx) Evict() {
 	tx.deps = nil
 }
 
-func (tx *UniqueTx) setStatus(status choices.Status) error {
-	tx.refresh()
-	if tx.status == status {
-		return nil
-	}
-	tx.status = status
-	return tx.vm.state.SetStatus(tx.ID(), status)
-}
 
 // ID returns the wrapped txID
 func (tx *UniqueTx) ID() ids.ID { return tx.txID }
-
-// Accept is called when the transaction was finalized as accepted by consensus
-func (tx *UniqueTx) Accept() error {
-	if s := tx.Status(); s != choices.Processing {
-		tx.vm.ctx.Log.Error("Failed to accept tx %s because the tx is in state %s", tx.txID, s)
-		return fmt.Errorf("transaction has invalid status: %s", s)
-	}
-
-	defer tx.vm.db.Abort()
-
-	// Remove spent utxos
-	for _, utxo := range tx.InputUTXOs() {
-		if utxo.Symbolic() {
-			// If the UTXO is symbolic, it can't be spent
-			continue
-		}
-		utxoID := utxo.InputID()
-		if err := tx.vm.state.SpendUTXO(utxoID); err != nil {
-			tx.vm.ctx.Log.Error("Failed to spend utxo %s due to %s", utxoID, err)
-			return err
-		}
-	}
-
-	// Add new utxos
-	for _, utxo := range tx.UTXOs() {
-		if err := tx.vm.state.FundUTXO(utxo); err != nil {
-			tx.vm.ctx.Log.Error("Failed to fund utxo %s due to %s", utxo.InputID(), err)
-			return err
-		}
-	}
-
-	if err := tx.setStatus(choices.Accepted); err != nil {
-		tx.vm.ctx.Log.Error("Failed to accept tx %s due to %s", tx.txID, err)
-		return err
-	}
-
-	txID := tx.ID()
-	commitBatch, err := tx.vm.db.CommitBatch()
-	if err != nil {
-		tx.vm.ctx.Log.Error("Failed to calculate CommitBatch for %s due to %s", txID, err)
-		return err
-	}
-
-	if err := tx.ExecuteWithSideEffects(tx.vm, commitBatch); err != nil {
-		tx.vm.ctx.Log.Error("Failed to commit accept %s due to %s", txID, err)
-		return err
-	}
-
-	tx.vm.ctx.Log.Verbo("Accepted Tx: %s", txID)
-
-	tx.vm.pubsub.Publish("accepted", txID)
-
-	tx.deps = nil // Needed to prevent a memory leak
-
-	return nil
-}
 
 // Reject is called when the transaction was finalized as rejected by consensus
 func (tx *UniqueTx) Reject() error {
@@ -187,6 +125,7 @@ func (tx *UniqueTx) Reject() error {
 
 	return nil
 }
+
 
 // Status returns the current status of this transaction
 func (tx *UniqueTx) Status() choices.Status {
@@ -322,3 +261,4 @@ func (tx *UniqueTx) SemanticVerify() error {
 
 	return tx.Tx.SemanticVerify(tx.vm, tx.UnsignedTx)
 }
+*/

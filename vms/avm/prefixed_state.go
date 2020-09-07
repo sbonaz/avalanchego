@@ -4,6 +4,8 @@
 package avm
 
 import (
+	"fmt"
+
 	"github.com/ava-labs/gecko/cache"
 	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/snow/choices"
@@ -27,12 +29,6 @@ type prefixedState struct {
 	state *state
 
 	tx, utxo, txStatus cache.Cacher
-	uniqueTx           cache.Deduplicator
-}
-
-// UniqueTx de-duplicates the transaction.
-func (s *prefixedState) UniqueTx(tx *UniqueTx) *UniqueTx {
-	return s.uniqueTx.Deduplicate(tx).(*UniqueTx)
 }
 
 // Tx attempts to load a transaction from storage.
@@ -83,10 +79,10 @@ func (s *prefixedState) Funds(addr []byte, start ids.ID, limit int) ([]ids.ID, e
 func (s *prefixedState) SpendUTXO(utxoID ids.ID) error {
 	utxo, err := s.UTXO(utxoID)
 	if err != nil {
-		return err
+		return fmt.Errorf("couldn't find UTXO %s", utxoID)
 	}
 	if err := s.SetUTXO(utxoID, nil); err != nil {
-		return err
+		return fmt.Errorf("couldn't remove UTXO: %w", err)
 	}
 
 	addressable, ok := utxo.Out.(avax.Addressable)

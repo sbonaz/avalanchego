@@ -180,8 +180,6 @@ func (vm *VM) Initialize(
 		tx:       &cache.LRU{Size: idCacheSize},
 		utxo:     &cache.LRU{Size: idCacheSize},
 		txStatus: &cache.LRU{Size: idCacheSize},
-
-		uniqueTx: &cache.EvictableLRU{Size: txCacheSize},
 	}
 
 	if err := vm.initAliases(genesisBytes); err != nil {
@@ -300,9 +298,9 @@ func (vm *VM) ParseTx(b []byte) (snowstorm.Tx, error) {
 func (vm *VM) GetTx(txID ids.ID) (snowstorm.Tx, error) {
 	vm.metrics.numGetTxCalls.Inc()
 
-	tx := &UniqueTx{
-		vm:   vm,
-		txID: txID,
+	tx, err := vm.state.Tx(txID)
+	if err != nil {
+		return nil, err
 	}
 	// Verify must be called in the case the that tx was flushed from the unique
 	// cache.
@@ -549,31 +547,26 @@ func (vm *VM) initState(genesisBytes []byte) error {
 	return vm.state.SetDBInitialized(choices.Processing)
 }
 
-func (vm *VM) parseTx(bytes []byte) (*UniqueTx, error) {
-	rawTx := &Tx{}
-	err := vm.codec.Unmarshal(bytes, rawTx)
+func (vm *VM) parseTx(bytes []byte) (*Tx, error) {
+	tx := &Tx{
+		vm: vm,
+	}
+	err := vm.codec.Unmarshal(bytes, tx)
 	if err != nil {
 		return nil, err
 	}
-	unsignedBytes, err := vm.codec.Marshal(&rawTx.UnsignedTx)
+	unsignedBytes, err := vm.codec.Marshal(&tx.UnsignedTx)
 	if err != nil {
 		return nil, err
 	}
-	rawTx.Initialize(unsignedBytes, bytes)
+	tx.Initialize(unsignedBytes, bytes)
 
-	tx := &UniqueTx{
-		TxState: &TxState{
-			Tx: rawTx,
-		},
-		vm:   vm,
-		txID: rawTx.ID(),
-	}
 	if err := tx.SyntacticVerify(); err != nil {
 		return nil, err
 	}
 
 	if tx.Status() == choices.Unknown {
-		if err := vm.state.SetTx(tx.ID(), tx.Tx); err != nil {
+		if err := vm.state.SetTx(tx.ID(), tx); err != nil { // TODO: Only save on acceptance
 			return nil, err
 		}
 		if err := tx.setStatus(choices.Processing); err != nil {
@@ -603,9 +596,9 @@ func (vm *VM) getUTXO(utxoID *avax.UTXOID) (*avax.UTXO, error) {
 	}
 
 	inputTx, inputIndex := utxoID.InputSource()
-	parent := UniqueTx{
-		vm:   vm,
-		txID: inputTx,
+	parent, err := vm.state.Tx(inputTx)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get input transaction %s: %w", inputTx, err)
 	}
 
 	if err := parent.verifyWithoutCacheWrites(); err != nil {
@@ -631,11 +624,8 @@ func (vm *VM) getFx(val interface{}) (int, error) {
 }
 
 func (vm *VM) verifyFxUsage(fxID int, assetID ids.ID) bool {
-	tx := &UniqueTx{
-		vm:   vm,
-		txID: assetID,
-	}
-	if status := tx.Status(); !status.Fetched() {
+	tx, err := vm.state.Tx(assetID)
+	if err != nil || !tx.Status().Fetched() {
 		return false
 	}
 	createAssetTx, ok := tx.UnsignedTx.(*CreateAssetTx)
