@@ -11,7 +11,6 @@ import (
 	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/snow"
 	"github.com/ava-labs/gecko/snow/choices"
-	"github.com/ava-labs/gecko/snow/consensus/snowstorm"
 	"github.com/ava-labs/gecko/utils/codec"
 	"github.com/ava-labs/gecko/utils/crypto"
 	"github.com/ava-labs/gecko/utils/hashing"
@@ -23,6 +22,11 @@ import (
 
 var (
 	errWrongNumberOfCredentials = errors.New("should have the same number of credentials as inputs")
+	errAssetIDMismatch          = errors.New("asset IDs in the input don't match the utxo")
+	errWrongAssetID             = errors.New("asset ID must be AVAX in the atomic tx")
+	errMissingUTXO              = errors.New("missing utxo")
+	errUnknownTx                = errors.New("transaction is unknown")
+	errRejectedTx               = errors.New("transaction is rejected")
 )
 
 // UnsignedTx ...
@@ -53,14 +57,14 @@ type Tx struct {
 	UnsignedTx `serialize:"true" json:"unsignedTx"`
 	Creds      []verify.Verifiable `serialize:"true" json:"credentials"` // The credentials of this transaction
 
-	vm                                *VM
-	unique, verifiedTx, verifiedState bool
-	validity                          error
-	inputs                            ids.Set
-	inputUTXOs                        []*avax.UTXOID
-	utxos                             []*avax.UTXO
-	deps                              []snowstorm.Tx
-	status                            choices.Status
+	vm                        *VM
+	verifiedTx, verifiedState bool
+	validity                  error
+	inputs                    ids.Set
+	inputUTXOs                []*avax.UTXOID
+	utxos                     []*avax.UTXO
+	deps                      []ids.ID
+	status                    choices.Status
 }
 
 // Credentials describes the authorization that allows the Inputs to consume the
@@ -138,7 +142,14 @@ func (t *Tx) setStatus(status choices.Status) error {
 
 // Status returns the current status of this transaction
 func (t *Tx) Status() choices.Status {
-	return t.status
+	if t.status != choices.Unknown {
+		return t.status
+	}
+	status, err := t.vm.state.Status(t.ID())
+	if err != nil {
+		return choices.Unknown
+	}
+	return status
 }
 
 // Accept is called when the transaction was finalized as accepted by consensus
@@ -189,7 +200,6 @@ func (t *Tx) Accept() error {
 	}
 
 	t.vm.ctx.Log.Verbo("Accepted Tx: %s", txID)
-
 	t.vm.pubsub.Publish("accepted", txID)
 
 	t.deps = nil // Needed to prevent a memory leak
@@ -197,8 +207,63 @@ func (t *Tx) Accept() error {
 	return nil
 }
 
+/*
 // Dependencies returns the set of transactions this transaction builds on
-func (t *Tx) Dependencies() []snowstorm.Tx {
+func (t *Tx) Dependencies() []ids.ID {
+	if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
+		t.vm.ctx.Log.Info("getting dependencies of %s", t.ID())
+	}
+	if len(t.deps) != 0 {
+		return t.deps
+	}
+
+	txIDs := ids.Set{}
+	for _, in := range t.InputUTXOs() {
+		if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
+			t.vm.ctx.Log.Info("in: %v", in)
+		}
+		if in.Symbolic() {
+			if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
+				t.vm.ctx.Log.Info("is symbolic")
+			}
+			continue
+		}
+		txID, _ := in.InputSource()
+		if txIDs.Contains(txID) {
+			if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
+				t.vm.ctx.Log.Info("contains")
+			}
+			continue
+		}
+		txIDs.Add(txID)
+		t.deps = append(t.deps, txID)
+		if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
+			t.vm.ctx.Log.Info("added")
+		}
+	}
+	consumedIDs := t.ConsumedAssetIDs()
+	for _, assetID := range t.AssetIDs().List() {
+		if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
+			t.vm.ctx.Log.Info("assetID: %s", assetID)
+		}
+		if consumedIDs.Contains(assetID) || txIDs.Contains(assetID) {
+			if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
+				t.vm.ctx.Log.Info("contains")
+			}
+			continue
+		}
+		txIDs.Add(assetID)
+		t.deps = append(t.deps, assetID)
+		if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
+			t.vm.ctx.Log.Info("added")
+		}
+	}
+	return t.deps
+}
+*/
+
+// Dependencies returns the set of transactions this transaction builds on
+func (t *Tx) Dependencies() []ids.ID {
 	if len(t.deps) != 0 {
 		return t.deps
 	}
@@ -213,7 +278,7 @@ func (t *Tx) Dependencies() []snowstorm.Tx {
 			continue
 		}
 		txIDs.Add(txID)
-		t.deps = append(t.deps)
+		t.deps = append(t.deps, txID)
 	}
 	consumedIDs := t.ConsumedAssetIDs()
 	for _, assetID := range t.AssetIDs().List() {
@@ -221,8 +286,7 @@ func (t *Tx) Dependencies() []snowstorm.Tx {
 			continue
 		}
 		txIDs.Add(assetID)
-		t.deps = append(t.deps, &Tx{}) // TODO fill this in
-
+		t.deps = append(t.deps, assetID)
 	}
 	return t.deps
 }
@@ -287,15 +351,31 @@ func (t *Tx) InputIDs() ids.Set {
 	return t.inputs
 }
 
+// InputUTXOs returns the utxos that will be consumed on tx acceptance
+func (t *Tx) InputUTXOs() []*avax.UTXOID {
+	if len(t.inputUTXOs) != 0 {
+		return t.inputUTXOs
+	}
+	t.inputUTXOs = t.UnsignedTx.InputUTXOs()
+	return t.inputUTXOs
+}
+
+// UTXOs returns the utxos that will be added to the UTXO set on tx acceptance
+func (t *Tx) UTXOs() []*avax.UTXO {
+	if len(t.utxos) != 0 {
+		return t.utxos
+	}
+	t.utxos = t.UnsignedTx.UTXOs()
+	return t.utxos
+}
+
 // SyntacticVerify verifies that this transaction is well formed
 func (t *Tx) SyntacticVerify() error {
-	if t.verifiedTx {
-		return t.validity
-	}
-
 	switch {
 	case t == nil || t.UnsignedTx == nil:
 		return errNilTx
+	case t.verifiedTx:
+		return t.validity
 	}
 
 	t.verifiedTx = true
@@ -322,6 +402,9 @@ func (t *Tx) SyntacticVerify() error {
 
 // SemanticVerify the validity of this transaction
 func (t *Tx) SemanticVerify() error {
+	if t == nil {
+		return errNilTx
+	}
 	// SyntacticVerify sets the error on validity and is checked in the next
 	// statement
 	_ = t.SyntacticVerify()
@@ -329,10 +412,5 @@ func (t *Tx) SemanticVerify() error {
 	if t.validity != nil || t.verifiedState {
 		return t.validity
 	}
-
-	if t == nil {
-		return errNilTx
-	}
-
 	return t.UnsignedTx.SemanticVerify(t.vm, t.UnsignedTx, t.Creds)
 }

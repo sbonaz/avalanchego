@@ -18,7 +18,7 @@ type Tx interface {
 	//
 	// Similarly, each element of Dependencies must be accepted before this
 	// transaction is accepted.
-	Dependencies() []Tx
+	Dependencies() []ids.ID
 
 	// InputIDs is a set where each element is the ID of a piece of state that
 	// will be consumed if this transaction is accepted.
@@ -40,4 +40,19 @@ type Tx interface {
 	// This is used for sending transactions to peers. Another node should be
 	// able to parse these bytes to the same transaction.
 	Bytes() []byte
+}
+
+// TxManager stores and retrieves transactions
+type TxManager interface {
+	// Get a transaction by its ID
+	GetTx(ids.ID) (Tx, error)
+
+	// Persist a transaction to storage
+	SaveTx(Tx) error
+
+	// Keep a transaction in memory until it is unpinned
+	PinTx(Tx)
+
+	// Unpin a transaction from memory
+	UnpinTx(ids.ID)
 }

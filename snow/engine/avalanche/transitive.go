@@ -35,6 +35,9 @@ const (
 
 	// Max size of cache of dropped vertices
 	droppedCacheSize = 1000
+
+	// Max size of cache of txs
+	txCacheSize = 5000
 )
 
 // Transitive implements the Engine interface by attempting to fetch all
@@ -42,8 +45,8 @@ const (
 type Transitive struct {
 	bootstrap.Bootstrapper
 	metrics
-
 	vertex.Manager
+	*txManager
 
 	Params    avalanche.Parameters
 	Consensus avalanche.Consensus
@@ -69,7 +72,7 @@ type Transitive struct {
 	// Invariant: Every block in this map is processing
 	// If a block is dropped, it will be removed from this map.
 	// However, it may be re-added later.
-	processing map[[32]byte]avalanche.Vertex
+	processingVtxs map[[32]byte]avalanche.Vertex
 
 	// Cache of decided block IDs.
 	// Key: Block ID
@@ -88,7 +91,7 @@ type Transitive struct {
 func (t *Transitive) Initialize(config Config) error {
 	config.Ctx.Log.Info("Initializing consensus engine")
 
-	t.processing = map[[32]byte]avalanche.Vertex{}
+	t.processingVtxs = map[[32]byte]avalanche.Vertex{}
 	t.decidedCache = cache.LRU{Size: decidedCacheSize}
 	t.droppedCache = cache.LRU{Size: droppedCacheSize}
 	t.Params = config.Params
@@ -98,6 +101,12 @@ func (t *Transitive) Initialize(config Config) error {
 		Manager: config.Manager,
 	}
 	config.Manager = t.Manager
+	t.txManager = &txManager{
+		pinnedTxs: map[[32]byte]snowstorm.Tx{},
+		vm:        config.VM,
+		txCache:   cache.LRU{Size: txCacheSize},
+	}
+	config.TxManager = t.txManager
 
 	factory := poll.NewEarlyTermNoTraversalFactory(int(config.Params.Alpha))
 	t.polls = poll.NewSet(factory,
@@ -131,7 +140,7 @@ func (t *Transitive) finishBootstrapping() error {
 	}
 
 	t.Ctx.Log.Info("bootstrapping finished with %d vertices in the accepted frontier", len(frontier))
-	if err := t.Consensus.Initialize(t.Ctx, t.Params, frontier, t.Manager); err != nil {
+	if err := t.Consensus.Initialize(t.Ctx, t.Params, frontier, t.Manager, t.txManager); err != nil {
 		return fmt.Errorf("couldn't initialize consensus instance: %w", err)
 	}
 	return nil
@@ -472,7 +481,7 @@ func (t *Transitive) issueFrom(vdr ids.ShortID, vtx avalanche.Vertex) (bool, err
 // Assumes we have [vtx].
 func (t *Transitive) issue(vtx avalanche.Vertex) error {
 	vtxID := vtx.ID()
-	t.processing[vtxID.Key()] = vtx
+	t.processingVtxs[vtxID.Key()] = vtx
 	t.droppedCache.Evict(vtxID)
 
 	// Add to set of vertices that have been queued up to be issued but haven't been yet
@@ -501,15 +510,25 @@ func (t *Transitive) issue(vtx avalanche.Vertex) error {
 	if err != nil {
 		return err
 	}
+	for _, tx := range txs {
+		if fetchedTx, err := t.GetTx(tx.ID()); err == nil { // If we already have a tx with this ID, reference that instead
+			tx = fetchedTx
+		}
+		if tx.Status() == choices.Processing {
+			t.txManager.PinTx(tx) // Pin this transaction in memory until it is decided or dropped
+		}
+
+	}
+
 	txIDs := ids.Set{}
 	for _, tx := range txs {
 		txIDs.Add(tx.ID())
 	}
 
 	for _, tx := range txs {
-		for _, dep := range tx.Dependencies() {
-			depID := dep.ID()
-			if !txIDs.Contains(depID) && !t.Consensus.TxIssued(dep) {
+		for _, depID := range tx.Dependencies() {
+			dep, err := t.GetTx(depID)
+			if err != nil || (!txIDs.Contains(depID) && !t.Consensus.TxIssued(dep)) {
 				// This transaction hasn't been issued yet. Add it as a dependency.
 				t.missingTxs.Add(depID)
 				i.txDeps.Add(depID)
@@ -676,7 +695,7 @@ type managerWrapper struct {
 // If vertex can't be found, returns an error.
 func (mw *managerWrapper) GetVertex(id ids.ID) (avalanche.Vertex, error) {
 	// Check the processing set
-	if vtx, ok := mw.t.processing[id.Key()]; ok {
+	if vtx, ok := mw.t.processingVtxs[id.Key()]; ok {
 		return vtx, nil
 	}
 	// Check the cache of recently dropped vertices

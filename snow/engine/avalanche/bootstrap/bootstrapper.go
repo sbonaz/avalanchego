@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/snow/choices"
 	"github.com/ava-labs/gecko/snow/consensus/avalanche"
+	"github.com/ava-labs/gecko/snow/consensus/snowstorm"
 	"github.com/ava-labs/gecko/snow/engine/avalanche/vertex"
 	"github.com/ava-labs/gecko/snow/engine/common"
 	"github.com/ava-labs/gecko/snow/engine/common/queue"
@@ -32,25 +33,31 @@ const (
 type Config struct {
 	common.Config
 
+	// Stores and retrieves vertices
+	Manager vertex.Manager
+
+	// Stores and retrieves transactions
+	snowstorm.TxManager
+
 	// VtxBlocked tracks operations that are blocked on vertices
 	// TxBlocked tracks operations that are blocked on transactions
 	VtxBlocked, TxBlocked *queue.Jobs
 
-	Manager vertex.Manager
-	VM      vertex.DAGVM
+	VM vertex.DAGVM
 }
 
 // Bootstrapper ...
 type Bootstrapper struct {
 	common.Bootstrapper
 	common.Fetcher
+	vertex.Manager
+	snowstorm.TxManager
 	metrics
 
 	// VtxBlocked tracks operations that are blocked on vertices
 	// TxBlocked tracks operations that are blocked on transactions
 	VtxBlocked, TxBlocked *queue.Jobs
 
-	vertex.Manager
 	VM vertex.DAGVM
 
 	// IDs of vertices that we will send a GetAncestors request for once we are
@@ -71,6 +78,7 @@ func (b *Bootstrapper) Initialize(
 	b.VtxBlocked = config.VtxBlocked
 	b.TxBlocked = config.TxBlocked
 	b.Manager = config.Manager
+	b.TxManager = config.TxManager
 	b.VM = config.VM
 	b.processedCache = &cache.LRU{Size: cacheSize}
 	b.OnFinished = onFinished
@@ -84,9 +92,11 @@ func (b *Bootstrapper) Initialize(
 		numAccepted: b.numAcceptedVts,
 		numDropped:  b.numDroppedVts,
 		mgr:         b.Manager,
+		TxManager:   b.TxManager,
 	})
 
 	b.TxBlocked.SetParser(&txParser{
+		TxManager:   b.TxManager,
 		log:         config.Ctx.Log,
 		numAccepted: b.numAcceptedTxs,
 		numDropped:  b.numDroppedTxs,
@@ -173,7 +183,6 @@ func (b *Bootstrapper) process(vtxs ...avalanche.Vertex) error {
 			return fmt.Errorf("tried to accept %s even though it was previously rejected", vtx.ID())
 		case choices.Processing:
 			b.needToFetch.Remove(vtxID)
-
 			if err := b.VtxBlocked.Push(&vertexJob{ // Add to queue of vertices to execute when bootstrapping finishes.
 				mgr:         b.Manager,
 				log:         b.Ctx.Log,
@@ -194,8 +203,16 @@ func (b *Bootstrapper) process(vtxs ...avalanche.Vertex) error {
 			if err != nil {
 				return err
 			}
+			for i := range txs {
+				if fetchedTx, err := b.GetTx(txs[i].ID()); err == nil {
+					txs[i] = fetchedTx // We already have a tx with this ID; reference that instead
+				} else {
+					b.TxManager.PinTx(txs[i]) // Pin this transaction in memory until it's decided or dropped
+				}
+			}
 			for _, tx := range txs { // Add transactions to queue of transactions to execute when bootstrapping finishes.
 				if err := b.TxBlocked.Push(&txJob{
+					TxManager:   b.TxManager,
 					log:         b.Ctx.Log,
 					numAccepted: b.numAcceptedTxs,
 					numDropped:  b.numDroppedTxs,
@@ -386,7 +403,7 @@ func (b *Bootstrapper) executeAll(jobs *queue.Jobs, events *triggers.EventDispat
 	for job, err := jobs.Pop(); err == nil; job, err = jobs.Pop() {
 		b.Ctx.Log.Debug("Executing: %s", job.ID())
 		if err := jobs.Execute(job); err != nil {
-			b.Ctx.Log.Error("Error executing: %s", err)
+			b.Ctx.Log.Error("Error executing %s: %s", job.ID(), err)
 			return err
 		}
 		if err := jobs.Commit(); err != nil {

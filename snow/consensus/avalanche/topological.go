@@ -74,6 +74,7 @@ func (ta *Topological) Initialize(
 	params Parameters,
 	frontier []Vertex,
 	vertexGetter VertexGetter,
+	txManager snowstorm.TxManager,
 ) error {
 	if err := params.Valid(); err != nil {
 		return err
@@ -90,7 +91,7 @@ func (ta *Topological) Initialize(
 	ta.nodes = make(map[[32]byte]Vertex, minMapSize)
 
 	ta.cg = &snowstorm.Directed{}
-	if err := ta.cg.Initialize(ctx, params.Parameters); err != nil {
+	if err := ta.cg.Initialize(ctx, params.Parameters, txManager); err != nil {
 		return err
 	}
 

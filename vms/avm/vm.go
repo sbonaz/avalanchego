@@ -171,11 +171,13 @@ func (vm *VM) Initialize(
 	vm.codec = c
 
 	vm.state = &prefixedState{
-		state: &state{State: avax.State{
-			Cache: &cache.LRU{Size: stateCacheSize},
-			DB:    vm.db,
-			Codec: vm.codec,
-		}},
+		state: &state{
+			VM: vm,
+			State: avax.State{
+				Cache: &cache.LRU{Size: stateCacheSize},
+				DB:    vm.db,
+				Codec: vm.codec,
+			}},
 
 		tx:       &cache.LRU{Size: idCacheSize},
 		utxo:     &cache.LRU{Size: idCacheSize},
@@ -496,6 +498,7 @@ func (vm *VM) initAliases(genesisBytes []byte) error {
 		}
 
 		tx := Tx{
+			vm:         vm,
 			UnsignedTx: &genesisTx.CreateAssetTx,
 		}
 		if err := tx.SignSECP256K1Fx(vm.codec, nil); err != nil {
@@ -523,6 +526,7 @@ func (vm *VM) initState(genesisBytes []byte) error {
 		}
 
 		tx := Tx{
+			vm:         vm,
 			UnsignedTx: &genesisTx.CreateAssetTx,
 		}
 		if err := tx.SignSECP256K1Fx(vm.codec, nil); err != nil {
@@ -531,7 +535,7 @@ func (vm *VM) initState(genesisBytes []byte) error {
 
 		txID := tx.ID()
 		vm.ctx.Log.Info("Initializing with AssetID %s", txID)
-		if err := vm.state.SetTx(txID, &tx); err != nil {
+		if err := vm.SaveTx(&tx); err != nil {
 			return err
 		}
 		if err := vm.state.SetStatus(txID, choices.Accepted); err != nil {
@@ -545,6 +549,16 @@ func (vm *VM) initState(genesisBytes []byte) error {
 	}
 
 	return vm.state.SetDBInitialized(choices.Processing)
+}
+
+// SaveTx persists [tx] to storage.
+// [tx] must be type *Tx
+func (vm *VM) SaveTx(tx snowstorm.Tx) error {
+	txCast, ok := tx.(*Tx)
+	if !ok {
+		return fmt.Errorf("expected tx to be type *Tx but is %T", tx)
+	}
+	return vm.state.SetTx(txCast.ID(), txCast)
 }
 
 func (vm *VM) parseTx(bytes []byte) (*Tx, error) {
@@ -566,10 +580,7 @@ func (vm *VM) parseTx(bytes []byte) (*Tx, error) {
 	}
 
 	if tx.Status() == choices.Unknown {
-		if err := vm.state.SetTx(tx.ID(), tx); err != nil { // TODO: Only save on acceptance
-			return nil, err
-		}
-		if err := tx.setStatus(choices.Processing); err != nil {
+		if err := tx.setStatus(choices.Processing); err != nil { // TODO only set status in disk when accepted
 			return nil, err
 		}
 		return tx, vm.db.Commit()

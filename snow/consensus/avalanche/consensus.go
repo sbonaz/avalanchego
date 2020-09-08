@@ -26,7 +26,9 @@ type Consensus interface {
 	Initialize(*snow.Context,
 		Parameters,
 		[]Vertex,
-		VertexGetter) error
+		VertexGetter,
+		snowstorm.TxManager,
+	) error
 
 	// Returns the parameters that describe this avalanche instance
 	Parameters() Parameters

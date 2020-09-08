@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/gecko/ids"
 	"github.com/ava-labs/gecko/snow/choices"
 	"github.com/ava-labs/gecko/snow/consensus/avalanche"
+	"github.com/ava-labs/gecko/snow/consensus/snowstorm"
 	"github.com/ava-labs/gecko/snow/engine/avalanche/vertex"
 	"github.com/ava-labs/gecko/snow/engine/common/queue"
 	"github.com/ava-labs/gecko/utils/logging"
@@ -21,6 +22,7 @@ type vtxParser struct {
 	log                     logging.Logger
 	numAccepted, numDropped prometheus.Counter
 	mgr                     vertex.Manager
+	snowstorm.TxManager
 }
 
 func (p *vtxParser) Parse(vtxBytes []byte) (queue.Job, error) {
@@ -34,6 +36,7 @@ func (p *vtxParser) Parse(vtxBytes []byte) (queue.Job, error) {
 		numDropped:  p.numDropped,
 		vtx:         vtx,
 		mgr:         p.mgr,
+		TxManager:   p.TxManager,
 	}, nil
 }
 
@@ -42,6 +45,7 @@ type vertexJob struct {
 	numAccepted, numDropped prometheus.Counter
 	vtx                     avalanche.Vertex
 	mgr                     vertex.Manager
+	snowstorm.TxManager
 }
 
 func (v *vertexJob) ID() ids.ID { return v.vtx.ID() }
@@ -74,10 +78,15 @@ func (v *vertexJob) Execute() error {
 	if err != nil {
 		return err
 	}
+
 	for _, tx := range txs {
+		tx, err := v.GetTx(tx.ID())
+		if err != nil {
+			v.log.Warn("couldn't find latest version of tx %s", tx.ID())
+		}
 		if tx.Status() != choices.Accepted {
 			v.numDropped.Inc()
-			v.log.Warn("attempting to execute vertex with non-accepted transactions")
+			v.log.Warn("attempting to execute vertex %s with non-accepted transaction %s (has status %s)", v.vtx.ID(), tx.ID(), tx.Status())
 			return nil
 		}
 	}

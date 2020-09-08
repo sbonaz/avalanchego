@@ -54,11 +54,12 @@ type directedTx struct {
 func (dg *Directed) Initialize(
 	ctx *snow.Context,
 	params sbcon.Parameters,
+	txManager TxManager,
 ) error {
 	dg.txs = make(map[[32]byte]*directedTx)
 	dg.utxos = make(map[[32]byte]ids.Set)
 
-	return dg.common.Initialize(ctx, params)
+	return dg.common.Initialize(ctx, params, txManager)
 }
 
 // IsVirtuous implements the Consensus interface

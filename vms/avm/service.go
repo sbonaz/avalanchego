@@ -495,18 +495,20 @@ func (service *Service) CreateFixedCapAsset(r *http.Request, args *CreateFixedCa
 	}
 	initialState.Sort(service.vm.codec)
 
-	tx := Tx{UnsignedTx: &CreateAssetTx{
-		BaseTx: BaseTx{BaseTx: avax.BaseTx{
-			NetworkID:    service.vm.ctx.NetworkID,
-			BlockchainID: service.vm.ctx.ChainID,
-			Outs:         outs,
-			Ins:          ins,
-		}},
-		Name:         args.Name,
-		Symbol:       args.Symbol,
-		Denomination: args.Denomination,
-		States:       []*InitialState{initialState},
-	}}
+	tx := Tx{
+		vm: service.vm,
+		UnsignedTx: &CreateAssetTx{
+			BaseTx: BaseTx{BaseTx: avax.BaseTx{
+				NetworkID:    service.vm.ctx.NetworkID,
+				BlockchainID: service.vm.ctx.ChainID,
+				Outs:         outs,
+				Ins:          ins,
+			}},
+			Name:         args.Name,
+			Symbol:       args.Symbol,
+			Denomination: args.Denomination,
+			States:       []*InitialState{initialState},
+		}}
 	if err := tx.SignSECP256K1Fx(service.vm.codec, keys); err != nil {
 		return err
 	}
@@ -603,18 +605,20 @@ func (service *Service) CreateVariableCapAsset(r *http.Request, args *CreateVari
 	}
 	initialState.Sort(service.vm.codec)
 
-	tx := Tx{UnsignedTx: &CreateAssetTx{
-		BaseTx: BaseTx{BaseTx: avax.BaseTx{
-			NetworkID:    service.vm.ctx.NetworkID,
-			BlockchainID: service.vm.ctx.ChainID,
-			Outs:         outs,
-			Ins:          ins,
-		}},
-		Name:         args.Name,
-		Symbol:       args.Symbol,
-		Denomination: args.Denomination,
-		States:       []*InitialState{initialState},
-	}}
+	tx := Tx{
+		vm: service.vm,
+		UnsignedTx: &CreateAssetTx{
+			BaseTx: BaseTx{BaseTx: avax.BaseTx{
+				NetworkID:    service.vm.ctx.NetworkID,
+				BlockchainID: service.vm.ctx.ChainID,
+				Outs:         outs,
+				Ins:          ins,
+			}},
+			Name:         args.Name,
+			Symbol:       args.Symbol,
+			Denomination: args.Denomination,
+			States:       []*InitialState{initialState},
+		}}
 	if err := tx.SignSECP256K1Fx(service.vm.codec, keys); err != nil {
 		return err
 	}
@@ -704,18 +708,20 @@ func (service *Service) CreateNFTAsset(r *http.Request, args *CreateNFTAssetArgs
 	}
 	initialState.Sort(service.vm.codec)
 
-	tx := Tx{UnsignedTx: &CreateAssetTx{
-		BaseTx: BaseTx{BaseTx: avax.BaseTx{
-			NetworkID:    service.vm.ctx.NetworkID,
-			BlockchainID: service.vm.ctx.ChainID,
-			Outs:         outs,
-			Ins:          ins,
-		}},
-		Name:         args.Name,
-		Symbol:       args.Symbol,
-		Denomination: 0, // NFTs are non-fungible
-		States:       []*InitialState{initialState},
-	}}
+	tx := Tx{
+		vm: service.vm,
+		UnsignedTx: &CreateAssetTx{
+			BaseTx: BaseTx{BaseTx: avax.BaseTx{
+				NetworkID:    service.vm.ctx.NetworkID,
+				BlockchainID: service.vm.ctx.ChainID,
+				Outs:         outs,
+				Ins:          ins,
+			}},
+			Name:         args.Name,
+			Symbol:       args.Symbol,
+			Denomination: 0, // NFTs are non-fungible
+			States:       []*InitialState{initialState},
+		}}
 	if err := tx.SignSECP256K1Fx(service.vm.codec, keys); err != nil {
 		return err
 	}
@@ -999,13 +1005,15 @@ func (service *Service) Send(r *http.Request, args *SendArgs, reply *api.JsonTxI
 	}
 	avax.SortTransferableOutputs(outs, service.vm.codec)
 
-	tx := Tx{UnsignedTx: &BaseTx{BaseTx: avax.BaseTx{
-		NetworkID:    service.vm.ctx.NetworkID,
-		BlockchainID: service.vm.ctx.ChainID,
-		Outs:         outs,
-		Ins:          ins,
-		Memo:         memoBytes,
-	}}}
+	tx := Tx{
+		vm: service.vm,
+		UnsignedTx: &BaseTx{BaseTx: avax.BaseTx{
+			NetworkID:    service.vm.ctx.NetworkID,
+			BlockchainID: service.vm.ctx.ChainID,
+			Outs:         outs,
+			Ins:          ins,
+			Memo:         memoBytes,
+		}}}
 	if err := tx.SignSECP256K1Fx(service.vm.codec, keys); err != nil {
 		return err
 	}
@@ -1094,15 +1102,17 @@ func (service *Service) Mint(r *http.Request, args *MintArgs, reply *api.JsonTxI
 	}
 	keys = append(keys, opKeys...)
 
-	tx := Tx{UnsignedTx: &OperationTx{
-		BaseTx: BaseTx{BaseTx: avax.BaseTx{
-			NetworkID:    service.vm.ctx.NetworkID,
-			BlockchainID: service.vm.ctx.ChainID,
-			Outs:         outs,
-			Ins:          ins,
-		}},
-		Ops: ops,
-	}}
+	tx := Tx{
+		vm: service.vm,
+		UnsignedTx: &OperationTx{
+			BaseTx: BaseTx{BaseTx: avax.BaseTx{
+				NetworkID:    service.vm.ctx.NetworkID,
+				BlockchainID: service.vm.ctx.ChainID,
+				Outs:         outs,
+				Ins:          ins,
+			}},
+			Ops: ops,
+		}}
 	if err := tx.SignSECP256K1Fx(service.vm.codec, keys); err != nil {
 		return err
 	}
@@ -1185,15 +1195,17 @@ func (service *Service) SendNFT(r *http.Request, args *SendNFTArgs, reply *api.J
 		return err
 	}
 
-	tx := Tx{UnsignedTx: &OperationTx{
-		BaseTx: BaseTx{BaseTx: avax.BaseTx{
-			NetworkID:    service.vm.ctx.NetworkID,
-			BlockchainID: service.vm.ctx.ChainID,
-			Outs:         outs,
-			Ins:          ins,
-		}},
-		Ops: ops,
-	}}
+	tx := Tx{
+		vm: service.vm,
+		UnsignedTx: &OperationTx{
+			BaseTx: BaseTx{BaseTx: avax.BaseTx{
+				NetworkID:    service.vm.ctx.NetworkID,
+				BlockchainID: service.vm.ctx.ChainID,
+				Outs:         outs,
+				Ins:          ins,
+			}},
+			Ops: ops,
+		}}
 	if err := tx.SignSECP256K1Fx(service.vm.codec, secpKeys); err != nil {
 		return err
 	}
@@ -1279,15 +1291,17 @@ func (service *Service) MintNFT(r *http.Request, args *MintNFTArgs, reply *api.J
 		return err
 	}
 
-	tx := Tx{UnsignedTx: &OperationTx{
-		BaseTx: BaseTx{BaseTx: avax.BaseTx{
-			NetworkID:    service.vm.ctx.NetworkID,
-			BlockchainID: service.vm.ctx.ChainID,
-			Outs:         outs,
-			Ins:          ins,
-		}},
-		Ops: ops,
-	}}
+	tx := Tx{
+		vm: service.vm,
+		UnsignedTx: &OperationTx{
+			BaseTx: BaseTx{BaseTx: avax.BaseTx{
+				NetworkID:    service.vm.ctx.NetworkID,
+				BlockchainID: service.vm.ctx.ChainID,
+				Outs:         outs,
+				Ins:          ins,
+			}},
+			Ops: ops,
+		}}
 	if err := tx.SignSECP256K1Fx(service.vm.codec, secpKeys); err != nil {
 		return err
 	}
@@ -1397,16 +1411,18 @@ func (service *Service) ImportAVAX(_ *http.Request, args *ImportAVAXArgs, reply 
 	}
 	avax.SortTransferableOutputs(outs, service.vm.codec)
 
-	tx := Tx{UnsignedTx: &ImportTx{
-		BaseTx: BaseTx{BaseTx: avax.BaseTx{
-			NetworkID:    service.vm.ctx.NetworkID,
-			BlockchainID: service.vm.ctx.ChainID,
-			Outs:         outs,
-			Ins:          ins,
-		}},
-		SourceChain: chainID,
-		ImportedIns: importInputs,
-	}}
+	tx := Tx{
+		vm: service.vm,
+		UnsignedTx: &ImportTx{
+			BaseTx: BaseTx{BaseTx: avax.BaseTx{
+				NetworkID:    service.vm.ctx.NetworkID,
+				BlockchainID: service.vm.ctx.ChainID,
+				Outs:         outs,
+				Ins:          ins,
+			}},
+			SourceChain: chainID,
+			ImportedIns: importInputs,
+		}}
 	if err := tx.SignSECP256K1Fx(service.vm.codec, keys); err != nil {
 		return err
 	}
@@ -1499,16 +1515,18 @@ func (service *Service) ExportAVAX(_ *http.Request, args *ExportAVAXArgs, reply 
 		})
 	}
 
-	tx := Tx{UnsignedTx: &ExportTx{
-		BaseTx: BaseTx{BaseTx: avax.BaseTx{
-			NetworkID:    service.vm.ctx.NetworkID,
-			BlockchainID: service.vm.ctx.ChainID,
-			Outs:         outs,
-			Ins:          ins,
-		}},
-		DestinationChain: chainID,
-		ExportedOuts:     exportOuts,
-	}}
+	tx := Tx{
+		vm: service.vm,
+		UnsignedTx: &ExportTx{
+			BaseTx: BaseTx{BaseTx: avax.BaseTx{
+				NetworkID:    service.vm.ctx.NetworkID,
+				BlockchainID: service.vm.ctx.ChainID,
+				Outs:         outs,
+				Ins:          ins,
+			}},
+			DestinationChain: chainID,
+			ExportedOuts:     exportOuts,
+		}}
 	if err := tx.SignSECP256K1Fx(service.vm.codec, keys); err != nil {
 		return err
 	}

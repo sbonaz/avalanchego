@@ -22,4 +22,7 @@ type DAGVM interface {
 
 	// Retrieve a transaction that was submitted previously
 	GetTx(ids.ID) (snowstorm.Tx, error)
+
+	// Persist a tx to storage
+	SaveTx(snowstorm.Tx) error
 }

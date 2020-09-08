@@ -41,7 +41,7 @@ func (i *issuer) Abandon() {
 		if i.t.Consensus.VertexIssued(i.vtx) {
 			return
 		}
-		delete(i.t.processing, vtxID.Key())
+		delete(i.t.processingVtxs, vtxID.Key())
 		i.t.droppedCache.Put(vtxID, i.vtx)
 		i.t.vtxBlocked.Abandon(vtxID) // Inform vertices waiting on this vtx that it won't be issued
 	}
@@ -64,9 +64,18 @@ func (i *issuer) Update() {
 		i.t.errs.Add(err)
 		return
 	}
+	for j := range txs {
+		if fetchedTx, err := i.t.GetTx(txs[j].ID()); err == nil {
+			txs[j] = fetchedTx // We already have a tx with this ID; reference that instead
+		} else {
+			i.t.PinTx(txs[j]) // Pin this transaction in memory until it's decided or dropped
+		}
+	}
+
 	validTxs := make([]snowstorm.Tx, 0, len(txs))
 	for _, tx := range txs {
 		if err := tx.Verify(); err != nil {
+			i.t.UnpinTx(tx.ID()) // Transaction is dropped; unpin it from memory
 			i.t.Ctx.Log.Debug("Transaction %s failed verification due to %s", tx.ID(), err)
 		} else {
 			validTxs = append(validTxs, tx)
@@ -80,10 +89,10 @@ func (i *issuer) Update() {
 		if err := i.t.batch(validTxs, false /*=force*/, false /*=empty*/); err != nil {
 			i.t.errs.Add(err)
 		}
-		delete(i.t.processing, vtxID.Key()) // Unpin from memory
+		delete(i.t.processingVtxs, vtxID.Key()) // Unpin from memory
 		i.t.droppedCache.Put(vtxID, i.vtx)
 		// i.t.numBlocked.Set(float64(t.pending.Len())) TODO add metric // Tracks performance statistics
-		// i.t.numProcessing.Set(float64(len(t.processing))) TODO add metric
+		// i.t.numProcessing.Set(float64(len(t.processingVtxs))) TODO add metric
 		i.t.vtxBlocked.Abandon(vtxID)
 		return
 	}
@@ -101,7 +110,7 @@ func (i *issuer) Update() {
 		i.t.decidedCache.Put(acceptedID, nil)
 		i.t.droppedCache.Evict(acceptedID) // Remove from dropped cache, if it was in there
 		acceptedIDKey := acceptedID.Key()
-		vtx, ok := i.t.processing[acceptedIDKey] // The vertex we're accepting
+		vtx, ok := i.t.processingVtxs[acceptedIDKey] // The vertex we're accepting
 		if !ok {
 			err := fmt.Errorf("couldn't find accepted vertex %s in processing list. Vertex not saved to VM's database", acceptedID)
 			i.t.errs.Add(err)
@@ -111,12 +120,12 @@ func (i *issuer) Update() {
 			i.t.errs.Add(err)
 			return
 		}
-		delete(i.t.processing, acceptedID.Key())
+		delete(i.t.processingVtxs, acceptedID.Key())
 	}
 	for _, rejectedID := range rejected.List() {
 		i.t.decidedCache.Put(rejectedID, nil)
 		i.t.droppedCache.Evict(rejectedID) // Remove from dropped cache, if it was in there
-		delete(i.t.processing, rejectedID.Key())
+		delete(i.t.processingVtxs, rejectedID.Key())
 	}
 
 	// Issue a poll for this vertex.

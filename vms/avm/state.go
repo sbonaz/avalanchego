@@ -26,7 +26,10 @@ func uniqueID(id ids.ID, prefix uint64, cacher cache.Cacher) ids.ID {
 
 // state is a thin wrapper around a database to provide, caching, serialization,
 // and de-serialization.
-type state struct{ avax.State }
+type state struct {
+	*VM
+	avax.State
+}
 
 // Tx attempts to load a transaction from storage.
 func (s *state) Tx(id ids.ID) (*Tx, error) {
@@ -43,11 +46,13 @@ func (s *state) Tx(id ids.ID) (*Tx, error) {
 	}
 
 	// The key was in the database
-	tx := &Tx{}
-	if err := s.Codec.Unmarshal(bytes, tx); err != nil {
+	tx := &Tx{
+		vm: s.VM,
+	}
+	if err := s.State.Codec.Unmarshal(bytes, tx); err != nil {
 		return nil, err
 	}
-	unsignedBytes, err := s.Codec.Marshal(&tx.UnsignedTx)
+	unsignedBytes, err := s.State.Codec.Marshal(&tx.UnsignedTx)
 	if err != nil {
 		return nil, err
 	}

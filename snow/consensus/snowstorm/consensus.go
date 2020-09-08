@@ -19,7 +19,7 @@ type Consensus interface {
 	fmt.Stringer
 
 	// Takes in the context, alpha, betaVirtuous, and betaRogue
-	Initialize(*snow.Context, sbcon.Parameters) error
+	Initialize(*snow.Context, sbcon.Parameters, TxManager) error
 
 	// Returns the parameters that describe this snowstorm instance
 	Parameters() sbcon.Parameters

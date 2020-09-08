@@ -57,7 +57,7 @@ func (v *voter) Update() {
 		v.t.decidedCache.Put(acceptedID, nil)
 		v.t.droppedCache.Evict(acceptedID) // Remove from dropped cache, if it was in there
 		acceptedIDKey := acceptedID.Key()
-		vtx, ok := v.t.processing[acceptedIDKey] // The vertex we're accepting
+		vtx, ok := v.t.processingVtxs[acceptedIDKey] // The vertex we're accepting
 		if !ok {
 			err := fmt.Errorf("couldn't find accepted vertex %s in processing list. Vertex not saved to VM's database", acceptedID)
 			v.t.errs.Add(err)
@@ -67,12 +67,12 @@ func (v *voter) Update() {
 			v.t.errs.Add(err)
 			return
 		}
-		delete(v.t.processing, acceptedIDKey)
+		delete(v.t.processingVtxs, acceptedIDKey)
 	}
 	for _, rejectedID := range rejected.List() {
 		v.t.decidedCache.Put(rejectedID, nil)
 		v.t.droppedCache.Evict(rejectedID) // Remove from dropped cache, if it was in there
-		delete(v.t.processing, rejectedID.Key())
+		delete(v.t.processingVtxs, rejectedID.Key())
 	}
 
 	txs := []snowstorm.Tx(nil)

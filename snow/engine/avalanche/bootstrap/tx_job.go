@@ -4,7 +4,6 @@
 package bootstrap
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,6 +17,7 @@ import (
 )
 
 type txParser struct {
+	snowstorm.TxManager
 	log                     logging.Logger
 	numAccepted, numDropped prometheus.Counter
 	vm                      vertex.DAGVM
@@ -29,6 +29,7 @@ func (p *txParser) Parse(txBytes []byte) (queue.Job, error) {
 		return nil, err
 	}
 	return &txJob{
+		TxManager:   p.TxManager,
 		log:         p.log,
 		numAccepted: p.numAccepted,
 		numDropped:  p.numDropped,
@@ -37,6 +38,7 @@ func (p *txParser) Parse(txBytes []byte) (queue.Job, error) {
 }
 
 type txJob struct {
+	snowstorm.TxManager
 	log                     logging.Logger
 	numAccepted, numDropped prometheus.Counter
 	tx                      snowstorm.Tx
@@ -45,9 +47,10 @@ type txJob struct {
 func (t *txJob) ID() ids.ID { return t.tx.ID() }
 func (t *txJob) MissingDependencies() (ids.Set, error) {
 	missing := ids.Set{}
-	for _, dep := range t.tx.Dependencies() {
-		if dep.Status() != choices.Accepted {
-			missing.Add(dep.ID())
+	for _, depID := range t.tx.Dependencies() {
+		dep, err := t.GetTx(depID)
+		if err != nil || dep.Status() != choices.Accepted {
+			missing.Add(depID)
 		}
 	}
 	return missing, nil
@@ -58,9 +61,10 @@ func (t *txJob) Execute() error {
 	if err != nil {
 		return err
 	}
+
 	if deps.Len() != 0 {
 		t.numDropped.Inc()
-		return errors.New("attempting to accept a transaction with missing dependencies")
+		return fmt.Errorf("couldn't accept transaction %s because it has missing dependencies", t.tx.ID())
 	}
 
 	status := t.tx.Status()
@@ -79,6 +83,11 @@ func (t *txJob) Execute() error {
 			t.log.Error("transaction %s failed to accept during bootstrapping due to %s",
 				t.tx.ID(), err)
 			return fmt.Errorf("failed to accept transaction in bootstrapping: %w", err)
+		}
+		// Unpin this transaction from memory and persist it to storage
+		t.TxManager.UnpinTx(t.tx.ID())
+		if err := t.TxManager.SaveTx(t.tx); err != nil {
+			return err
 		}
 	}
 	return nil

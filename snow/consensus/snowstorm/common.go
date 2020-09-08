@@ -23,6 +23,9 @@ type common struct {
 	// metrics that describe this consensus instance
 	metrics
 
+	// Stores and retrieves transactions
+	TxManager
+
 	// context that this consensus instance is executing in
 	ctx *snow.Context
 
@@ -52,9 +55,10 @@ type common struct {
 }
 
 // Initialize implements the ConflictGraph interface
-func (c *common) Initialize(ctx *snow.Context, params sbcon.Parameters) error {
+func (c *common) Initialize(ctx *snow.Context, params sbcon.Parameters, txManager TxManager) error {
 	c.ctx = ctx
 	c.params = params
+	c.TxManager = txManager
 
 	if err := c.metrics.Initialize(params.Namespace, params.Metrics); err != nil {
 		return fmt.Errorf("failed to initialize metrics: %s", err)
@@ -190,13 +194,14 @@ func (c *common) registerAcceptor(con Consensus, tx Tx) {
 		txID: txID,
 	}
 
-	for _, dependency := range tx.Dependencies() {
-		if dependency.Status() != choices.Accepted {
+	for _, dependencyID := range tx.Dependencies() {
+		dep, err := c.GetTx(dependencyID)
+		if err != nil || dep.Status() != choices.Accepted {
 			// If the dependency isn't accepted, then it must be processing.
 			// This tx should be accepted after this tx is accepted. Note that
 			// the dependencies can't already be rejected, because it is assumed
 			// that this tx is currently considered valid.
-			toAccept.deps.Add(dependency.ID())
+			toAccept.deps.Add(dependencyID)
 		}
 	}
 
@@ -218,13 +223,14 @@ func (c *common) registerRejector(con Consensus, tx Tx) {
 	}
 
 	// Register all of this txs dependencies as possibilities to reject this tx.
-	for _, dependency := range tx.Dependencies() {
-		if dependency.Status() != choices.Accepted {
+	for _, dependencyID := range tx.Dependencies() {
+		dep, err := c.GetTx(dependencyID)
+		if err != nil || dep.Status() != choices.Accepted {
 			// If the dependency isn't accepted, then it must be processing. So,
 			// this tx should be rejected if any of these processing txs are
 			// rejected. Note that the dependencies can't already be rejected,
 			// because it is assumed that this tx is currently considered valid.
-			toReject.deps.Add(dependency.ID())
+			toReject.deps.Add(dependencyID)
 		}
 	}
 
