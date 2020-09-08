@@ -35,10 +35,8 @@ func (tm *txManager) GetTx(id ids.ID) (snowstorm.Tx, error) {
 
 // SaveTx persists a tx
 func (tm *txManager) SaveTx(tx snowstorm.Tx) error {
-	// First, check the cache
-	tm.txCache.Put(tx.ID(), tx)
-	// Try the VM
-	return tm.vm.SaveTx(tx)
+	tm.txCache.Put(tx.ID(), tx) // Put in cache
+	return tm.vm.SaveTx(tx)     // Persist
 }
 
 // PinTx puts a transaction in memory, where it will stay until UnpinTx is called
