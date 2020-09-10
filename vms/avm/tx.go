@@ -327,6 +327,9 @@ func (t *Tx) Verify() error {
 }
 
 func (t *Tx) verifyWithoutCacheWrites() error {
+	if t == nil {
+		return errUnknownTx
+	}
 	switch status := t.Status(); status {
 	case choices.Unknown:
 		return errUnknownTx

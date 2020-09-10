@@ -79,15 +79,11 @@ func (v *vertexJob) Execute() error {
 		return err
 	}
 
-	for _, tx := range txs {
-		tx, err := v.GetTx(tx.ID())
-		if err != nil {
-			v.log.Warn("couldn't find latest version of tx %s", tx.ID())
-		}
-		if tx.Status() != choices.Accepted {
-			v.numDropped.Inc()
-			v.log.Warn("attempting to execute vertex %s with non-accepted transaction %s (has status %s)", v.vtx.ID(), tx.ID(), tx.Status())
-			return nil
+	for i := range txs {
+		if tx, err := v.GetTx(txs[i].ID()); err != nil {
+			return fmt.Errorf("couldn't find tx %s", tx.ID())
+		} else if tx.Status() != choices.Accepted {
+			return fmt.Errorf("attempting to execute vertex %s with non-accepted transaction %s (has status %s)", v.vtx.ID(), tx.ID(), tx.Status())
 		}
 	}
 	status := v.vtx.Status()
@@ -100,7 +96,7 @@ func (v *vertexJob) Execute() error {
 		if err := v.vtx.Accept(); err != nil {
 			return fmt.Errorf("failed to accept vertex in bootstrapping: %w", err)
 		} else if err := v.mgr.SaveVertex(v.vtx); err != nil {
-			return fmt.Errorf("failed to save block %s to VM's database: %s", v.vtx.ID(), err)
+			return fmt.Errorf("failed to save block %s: %w", v.vtx.ID(), err)
 		}
 	}
 	return nil

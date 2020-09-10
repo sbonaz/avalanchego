@@ -16,18 +16,20 @@ var (
 	errParseTx = errors.New("unexpectedly called ParseTx")
 	errIssueTx = errors.New("unexpectedly called IssueTx")
 	errGetTx   = errors.New("unexpectedly called GetTx")
+	errSaveTx  = errors.New("unexpectedly called SaveTx")
 )
 
 // TestVM ...
 type TestVM struct {
 	common.TestVM
 
-	CantPendingTxs, CantParseTx, CantIssueTx, CantGetTx bool
+	CantPendingTxs, CantParseTx, CantIssueTx, CantGetTx, CantSaveTx bool
 
 	PendingTxsF func() []snowstorm.Tx
 	ParseTxF    func([]byte) (snowstorm.Tx, error)
 	IssueTxF    func([]byte, func(choices.Status), func(choices.Status)) (ids.ID, error)
 	GetTxF      func(ids.ID) (snowstorm.Tx, error)
+	SaveTxF     func(snowstorm.Tx) error
 }
 
 // Default ...
@@ -38,6 +40,7 @@ func (vm *TestVM) Default(cant bool) {
 	vm.CantParseTx = cant
 	vm.CantIssueTx = cant
 	vm.CantGetTx = cant
+	vm.CantSaveTx = cant
 }
 
 // PendingTxs ...
@@ -82,4 +85,15 @@ func (vm *TestVM) GetTx(txID ids.ID) (snowstorm.Tx, error) {
 		vm.T.Fatal(errGetTx)
 	}
 	return nil, errGetTx
+}
+
+// SaveTx ...
+func (vm *TestVM) SaveTx(tx snowstorm.Tx) error {
+	if vm.SaveTxF != nil {
+		return vm.SaveTxF(tx)
+	}
+	if vm.CantSaveTx && vm.T != nil {
+		vm.T.Fatal(errSaveTx)
+	}
+	return errSaveTx
 }

@@ -905,6 +905,18 @@ func TestEngineRejectDoubleSpendTx(t *testing.T) {
 	sender.CantPushQuery = false
 
 	vm.PendingTxsF = func() []snowstorm.Tx { return []snowstorm.Tx{tx0, tx1} }
+	vm.GetTxF = func(id ids.ID) (snowstorm.Tx, error) {
+		switch {
+		case id.Equals(gTx.ID()):
+			return gTx, nil
+		case id.Equals(tx0.ID()):
+			return nil, errUnknownVertex
+		case id.Equals(tx1.ID()):
+			return nil, errUnknownVertex
+		}
+		t.Error("tried to get wrong tx")
+		return nil, errUnknownVertex
+	}
 	te.Notify(common.PendingTxs)
 }
 
@@ -970,6 +982,18 @@ func TestEngineRejectDoubleSpendIssuedTx(t *testing.T) {
 		DependenciesV: []snowstorm.Tx{gTx},
 	}
 	tx1.InputIDsV.Add(utxos[0])
+	vm.GetTxF = func(id ids.ID) (snowstorm.Tx, error) {
+		switch {
+		case id.Equals(gTx.ID()):
+			return gTx, nil
+		case id.Equals(tx0.ID()):
+			return nil, errUnknownVertex
+		case id.Equals(tx1.ID()):
+			return nil, errUnknownVertex
+		}
+		t.Error("tried to get wrong tx")
+		return nil, errUnknownVertex
+	}
 
 	manager.EdgeF = func() []ids.ID { return []ids.ID{gVtx.ID(), mVtx.ID()} }
 	manager.GetVertexF = func(id ids.ID) (avalanche.Vertex, error) {
@@ -1154,6 +1178,22 @@ func TestEngineReissue(t *testing.T) {
 		DependenciesV: []snowstorm.Tx{gTx},
 	}
 	tx3.InputIDsV.Add(utxos[0])
+	vm.GetTxF = func(id ids.ID) (snowstorm.Tx, error) {
+		switch {
+		case id.Equals(gTx.ID()):
+			return gTx, nil
+		case id.Equals(tx0.ID()):
+			return nil, errUnknownVertex
+		case id.Equals(tx1.ID()):
+			return nil, errUnknownVertex
+		case id.Equals(tx2.ID()):
+			return nil, errUnknownVertex
+		case id.Equals(tx3.ID()):
+			return nil, errUnknownVertex
+		}
+		t.Error("tried to get wrong tx")
+		return nil, errUnknownVertex
+	}
 
 	vtx := &avalanche.TestVertex{
 		TestDecidable: choices.TestDecidable{
@@ -1198,13 +1238,6 @@ func TestEngineReissue(t *testing.T) {
 			BytesV:   []byte{1},
 		}
 		return lastVtx, nil
-	}
-
-	vm.GetTxF = func(id ids.ID) (snowstorm.Tx, error) {
-		if !id.Equals(tx0.ID()) {
-			t.Fatalf("Wrong tx")
-		}
-		return tx0, nil
 	}
 
 	queryRequestID := new(uint32)
@@ -1299,6 +1332,18 @@ func TestEngineLargeIssue(t *testing.T) {
 		DependenciesV: []snowstorm.Tx{gTx},
 	}
 	tx1.InputIDsV.Add(utxos[1])
+	vm.GetTxF = func(id ids.ID) (snowstorm.Tx, error) {
+		switch {
+		case id.Equals(gTx.ID()):
+			return gTx, nil
+		case id.Equals(tx0.ID()):
+			return nil, errUnknownVertex
+		case id.Equals(tx1.ID()):
+			return nil, errUnknownVertex
+		}
+		t.Error("tried to get wrong tx")
+		return nil, errUnknownVertex
+	}
 
 	manager.EdgeF = func() []ids.ID { return []ids.ID{gVtx.ID(), mVtx.ID()} }
 	manager.GetVertexF = func(id ids.ID) (avalanche.Vertex, error) {
@@ -2443,8 +2488,27 @@ func TestEngineBootstrappingIntoConsensus(t *testing.T) {
 		t.Fatal("saved wrong vertex")
 		return errUnknownVertex
 	}
+	vm.SaveTxF = func(tx snowstorm.Tx) error {
+		switch {
+		case tx.ID().Equals(txID0):
+			return nil
+		}
+		t.Error("tried to save wrong tx")
+		return errUnknownVertex
+	}
 
 	te.MultiPut(vdr, *requestID, [][]byte{vtxBytes0})
+
+	vm.GetTxF = func(id ids.ID) (snowstorm.Tx, error) {
+		switch {
+		case id.Equals(tx0.ID()):
+			return tx0, nil
+		case id.Equals(tx1.ID()):
+			return nil, errUnknownVertex
+		}
+		t.Error("tried to get wrong tx")
+		return nil, errUnknownVertex
+	}
 
 	vm.ParseTxF = nil
 	manager.ParseVertexF = nil
@@ -3168,6 +3232,17 @@ func TestEngineDuplicatedIssuance(t *testing.T) {
 	}
 	tx.InputIDsV.Add(utxos[0])
 
+	vm.GetTxF = func(id ids.ID) (snowstorm.Tx, error) {
+		switch {
+		case id.Equals(gTx.ID()):
+			return gTx, nil
+		case id.Equals(tx.ID()):
+			return nil, errUnknownVertex
+		}
+		t.Error("tried to get wrong tx")
+		return nil, errUnknownVertex
+	}
+
 	manager.EdgeF = func() []ids.ID { return []ids.ID{gVtx.ID(), mVtx.ID()} }
 	manager.GetVertexF = func(id ids.ID) (avalanche.Vertex, error) {
 		switch {
@@ -3355,7 +3430,7 @@ func TestEngineDoubleChit(t *testing.T) {
 }
 
 // Test that we correctly track processing vertices in memory
-func TestPinProcessingInMemory(t *testing.T) {
+func TestPinProcessingVtxs(t *testing.T) {
 	// Do setup
 	config := DefaultConfig()
 	vdr := validators.GenerateRandomValidator(1)
@@ -3438,8 +3513,8 @@ func TestPinProcessingInMemory(t *testing.T) {
 	}
 
 	// First, test the simple case where there's one processing vertex with no conflicts and it's accepted
-	if len(te.processing) != 0 {
-		t.Fatalf("processing should have %d elements but has %d", 0, len(te.processing))
+	if len(te.processingVtxs) != 0 {
+		t.Fatalf("processing should have %d elements but has %d", 0, len(te.processingVtxs))
 	}
 	manager.ParseVertexF = func(b []byte) (avalanche.Vertex, error) {
 		if bytes.Equal(b, vtx.Bytes()) {
@@ -3450,8 +3525,8 @@ func TestPinProcessingInMemory(t *testing.T) {
 	}
 
 	te.Put(vdr.ID(), 0, vtx.ID(), vtx.Bytes())
-	if len(te.processing) != 1 {
-		t.Fatalf("processing should have %d elements but has %d", 1, len(te.processing))
+	if len(te.processingVtxs) != 1 {
+		t.Fatalf("processing should have %d elements but has %d", 1, len(te.processingVtxs))
 	}
 
 	manager.SaveVertexF = func(vtx avalanche.Vertex) error {
@@ -3473,8 +3548,8 @@ func TestPinProcessingInMemory(t *testing.T) {
 	te.Chits(vdr.ID(), reqID, votes)
 	if vtx.Status() != choices.Accepted {
 		t.Fatal("should be accepted")
-	} else if len(te.processing) != 0 {
-		t.Fatalf("processing should have %d elements but has %d", 0, len(te.processing))
+	} else if len(te.processingVtxs) != 0 {
+		t.Fatalf("processing should have %d elements but has %d", 0, len(te.processingVtxs))
 	}
 
 	// Second, test the case where there are conflicting vertices and vertices with children
@@ -3542,16 +3617,16 @@ func TestPinProcessingInMemory(t *testing.T) {
 
 	// Issue push queries for the new vertices
 	te.PushQuery(vdr.ID(), 3, vtx2.ID(), vtx2.Bytes())
-	if len(te.processing) != 1 {
-		t.Fatalf("processing should have %d elements but has %d", 1, len(te.processing))
+	if len(te.processingVtxs) != 1 {
+		t.Fatalf("processing should have %d elements but has %d", 1, len(te.processingVtxs))
 	}
 	te.PushQuery(vdr.ID(), 4, vtx3.ID(), vtx3.Bytes())
-	if len(te.processing) != 2 {
-		t.Fatalf("processing should have %d elements but has %d", 2, len(te.processing))
+	if len(te.processingVtxs) != 2 {
+		t.Fatalf("processing should have %d elements but has %d", 2, len(te.processingVtxs))
 	}
 	te.PushQuery(vdr.ID(), 5, vtx4.ID(), vtx4.Bytes())
-	if len(te.processing) != 3 {
-		t.Fatalf("processing should have %d elements but has %d", 3, len(te.processing))
+	if len(te.processingVtxs) != 3 {
+		t.Fatalf("processing should have %d elements but has %d", 3, len(te.processingVtxs))
 	}
 
 	// Current tree:
@@ -3596,8 +3671,8 @@ func TestPinProcessingInMemory(t *testing.T) {
 		t.Fatal("should have accepted vtx3")
 	} else if vtx4.Status() != choices.Rejected {
 		t.Fatal("should have rejected vtx4")
-	} else if len(te.processing) != 0 {
-		t.Fatalf("processing should have %d elements but has %d", 0, len(te.processing))
+	} else if len(te.processingVtxs) != 0 {
+		t.Fatalf("processing should have %d elements but has %d", 0, len(te.processingVtxs))
 	}
 	manager.GetVertexF = func(id ids.ID) (avalanche.Vertex, error) {
 		if id.Equals(gVtx.ID()) {
@@ -3650,8 +3725,8 @@ func TestPinProcessingInMemory(t *testing.T) {
 	}
 	te.PushQuery(vdr.ID(), 9, vtx5.ID(), vtx5.Bytes()) // Will call get for vtx4 since we don't have it locally anymore
 	te.Put(vdr.ID(), reqID, vtx4.ID(), vtx4.Bytes())
-	if len(te.processing) != 0 {
-		t.Fatalf("processing should have %d elements but has %d", 0, len(te.processing))
+	if len(te.processingVtxs) != 0 {
+		t.Fatalf("processing should have %d elements but has %d", 0, len(te.processingVtxs))
 	}
 
 	// Current tree:
@@ -3731,8 +3806,8 @@ func TestPinProcessingInMemory(t *testing.T) {
 	te.PushQuery(vdr.ID(), 10, vtx7.ID(), vtx7.Bytes()) // Will block on vtx6
 	if !requested {
 		t.Fatal("should have requested vtx6")
-	} else if len(te.processing) != 1 {
-		t.Fatalf("processing should have %d elements but has %d", 1, len(te.processing))
+	} else if len(te.processingVtxs) != 1 {
+		t.Fatalf("processing should have %d elements but has %d", 1, len(te.processingVtxs))
 	}
 	te.Put(vdr.ID(), reqID, vtx6.ID(), vtx6.Bytes())
 
@@ -3750,7 +3825,7 @@ func TestPinProcessingInMemory(t *testing.T) {
 	//   vtx7
 
 	// vtx7 becomes unblocked. vtx6 fails verification, so vtx7 gets dropped.
-	if len(te.processing) != 0 {
-		t.Fatalf("processing should have %d elements but has %d", 0, len(te.processing))
+	if len(te.processingVtxs) != 0 {
+		t.Fatalf("processing should have %d elements but has %d", 0, len(te.processingVtxs))
 	}
 }

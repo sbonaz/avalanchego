@@ -96,7 +96,8 @@ func (n *Network) Initialize(
 }
 
 func (n *Network) AddNode(cg Consensus) {
-	cg.Initialize(snow.DefaultContextTest(), n.params)
+	txManager := &TestTxManager{}
+	cg.Initialize(snow.DefaultContextTest(), n.params, txManager)
 
 	n.shuffleConsumers()
 

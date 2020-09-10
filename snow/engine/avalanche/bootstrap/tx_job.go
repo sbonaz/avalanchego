@@ -84,11 +84,7 @@ func (t *txJob) Execute() error {
 				t.tx.ID(), err)
 			return fmt.Errorf("failed to accept transaction in bootstrapping: %w", err)
 		}
-		// Unpin this transaction from memory and persist it to storage
-		t.TxManager.UnpinTx(t.tx.ID())
-		if err := t.TxManager.SaveTx(t.tx); err != nil {
-			return err
-		}
+		// We saved this tx when we got it so we don't need to save it now
 	}
 	return nil
 }

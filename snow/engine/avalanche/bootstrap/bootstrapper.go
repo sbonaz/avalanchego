@@ -203,13 +203,6 @@ func (b *Bootstrapper) process(vtxs ...avalanche.Vertex) error {
 			if err != nil {
 				return err
 			}
-			for i := range txs {
-				if fetchedTx, err := b.GetTx(txs[i].ID()); err == nil {
-					txs[i] = fetchedTx // We already have a tx with this ID; reference that instead
-				} else {
-					b.TxManager.PinTx(txs[i]) // Pin this transaction in memory until it's decided or dropped
-				}
-			}
 			for _, tx := range txs { // Add transactions to queue of transactions to execute when bootstrapping finishes.
 				if err := b.TxBlocked.Push(&txJob{
 					TxManager:   b.TxManager,
@@ -219,10 +212,14 @@ func (b *Bootstrapper) process(vtxs ...avalanche.Vertex) error {
 					tx:          tx,
 				}); err == nil {
 					b.numFetchedTxs.Inc()
+					if err := b.TxManager.SaveTx(tx); err != nil { // Save the transaction
+						return fmt.Errorf("couldn't save tx %s: %w", tx.ID(), err)
+					}
 				} else {
 					b.Ctx.Log.Verbo("couldn't push to txBlocked: %s", err)
 				}
 			}
+
 			parentIDs, err := vtx.Parents()
 			if err != nil {
 				return err

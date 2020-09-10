@@ -11,6 +11,7 @@ type wrappedTx struct {
 	snowstorm.Tx
 }
 
+// Accept a transaction, unpin it from memory and save it.
 func (tx *wrappedTx) Accept() error {
 	if err := tx.Tx.Accept(); err != nil {
 		return err
@@ -19,6 +20,7 @@ func (tx *wrappedTx) Accept() error {
 	return tx.t.SaveTx(tx.Tx)
 }
 
+// Rejects a transaction and unpin it from memory.
 func (tx *wrappedTx) Reject() error {
 	tx.t.txManager.UnpinTx(tx.ID())
 	return tx.Tx.Reject()

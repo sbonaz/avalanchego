@@ -41,18 +41,3 @@ type Tx interface {
 	// able to parse these bytes to the same transaction.
 	Bytes() []byte
 }
-
-// TxManager stores and retrieves transactions
-type TxManager interface {
-	// Get a transaction by its ID
-	GetTx(ids.ID) (Tx, error)
-
-	// Persist a transaction to storage
-	SaveTx(Tx) error
-
-	// Keep a transaction in memory until it is unpinned
-	PinTx(Tx)
-
-	// Unpin a transaction from memory
-	UnpinTx(ids.ID)
-}

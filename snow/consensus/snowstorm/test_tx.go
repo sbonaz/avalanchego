@@ -19,7 +19,13 @@ type TestTx struct {
 }
 
 // Dependencies implements the Tx interface
-func (t *TestTx) Dependencies() []Tx { return t.DependenciesV }
+func (t *TestTx) Dependencies() []ids.ID {
+	deps := make([]ids.ID, len(t.DependenciesV))
+	for i, dep := range t.DependenciesV {
+		deps[i] = dep.ID()
+	}
+	return deps
+}
 
 // InputIDs implements the Tx interface
 func (t *TestTx) InputIDs() ids.Set { return t.InputIDsV }

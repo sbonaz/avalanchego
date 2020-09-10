@@ -77,7 +77,7 @@ func (v *voter) Update() {
 
 	txs := []snowstorm.Tx(nil)
 	for _, orphanID := range v.t.Consensus.Orphans().List() {
-		if tx, err := v.t.VM.GetTx(orphanID); err == nil {
+		if tx, err := v.t.GetTx(orphanID); err == nil {
 			txs = append(txs, tx)
 		} else {
 			v.t.Ctx.Log.Warn("Failed to fetch %s during attempted re-issuance", orphanID)

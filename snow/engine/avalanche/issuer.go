@@ -64,13 +64,7 @@ func (i *issuer) Update() {
 		i.t.errs.Add(err)
 		return
 	}
-	for j := range txs {
-		if fetchedTx, err := i.t.GetTx(txs[j].ID()); err == nil {
-			txs[j] = fetchedTx // We already have a tx with this ID; reference that instead
-		} else {
-			i.t.PinTx(txs[j]) // Pin this transaction in memory until it's decided or dropped
-		}
-	}
+	txs = i.t.update(txs...)
 
 	validTxs := make([]snowstorm.Tx, 0, len(txs))
 	for _, tx := range txs {

@@ -90,6 +90,7 @@ func ConsensusTest(t *testing.T, factory Factory, prefix string) {
 
 func MetricsTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	{
 		params := sbcon.Parameters{
@@ -104,7 +105,7 @@ func MetricsTest(t *testing.T, factory Factory) {
 			Name: "tx_processing",
 		}))
 		graph := factory.New()
-		graph.Initialize(snow.DefaultContextTest(), params)
+		graph.Initialize(snow.DefaultContextTest(), params, txManager)
 	}
 	{
 		params := sbcon.Parameters{
@@ -119,7 +120,7 @@ func MetricsTest(t *testing.T, factory Factory) {
 			Name: "tx_accepted",
 		}))
 		graph := factory.New()
-		graph.Initialize(snow.DefaultContextTest(), params)
+		graph.Initialize(snow.DefaultContextTest(), params, txManager)
 	}
 	{
 		params := sbcon.Parameters{
@@ -134,12 +135,13 @@ func MetricsTest(t *testing.T, factory Factory) {
 			Name: "tx_rejected",
 		}))
 		graph := factory.New()
-		graph.Initialize(snow.DefaultContextTest(), params)
+		graph.Initialize(snow.DefaultContextTest(), params, txManager)
 	}
 }
 
 func ParamsTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -151,7 +153,7 @@ func ParamsTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if p := graph.Parameters(); p.K != params.K {
 		t.Fatalf("Wrong K parameter")
@@ -166,6 +168,7 @@ func ParamsTest(t *testing.T, factory Factory) {
 
 func IssuedTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -177,7 +180,7 @@ func IssuedTest(t *testing.T, factory Factory) {
 		BetaRogue:         1,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if issued := graph.Issued(Red); issued {
 		t.Fatalf("Haven't issued anything yet.")
@@ -196,6 +199,7 @@ func IssuedTest(t *testing.T, factory Factory) {
 
 func LeftoverInputTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -207,7 +211,7 @@ func LeftoverInputTest(t *testing.T, factory Factory) {
 		BetaRogue:         1,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(Red); err != nil {
 		t.Fatal(err)
@@ -241,6 +245,7 @@ func LeftoverInputTest(t *testing.T, factory Factory) {
 
 func LowerConfidenceTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -252,7 +257,7 @@ func LowerConfidenceTest(t *testing.T, factory Factory) {
 		BetaRogue:         1,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(Red); err != nil {
 		t.Fatal(err)
@@ -286,6 +291,7 @@ func LowerConfidenceTest(t *testing.T, factory Factory) {
 
 func MiddleConfidenceTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -297,7 +303,7 @@ func MiddleConfidenceTest(t *testing.T, factory Factory) {
 		BetaRogue:         1,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(Red); err != nil {
 		t.Fatal(err)
@@ -335,6 +341,7 @@ func MiddleConfidenceTest(t *testing.T, factory Factory) {
 
 func IndependentTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -346,7 +353,7 @@ func IndependentTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(Red); err != nil {
 		t.Fatal(err)
@@ -391,6 +398,7 @@ func IndependentTest(t *testing.T, factory Factory) {
 
 func VirtuousTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -402,7 +410,7 @@ func VirtuousTest(t *testing.T, factory Factory) {
 		BetaRogue:         1,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(Red); err != nil {
 		t.Fatal(err)
@@ -433,6 +441,7 @@ func VirtuousTest(t *testing.T, factory Factory) {
 
 func IsVirtuousTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -444,7 +453,7 @@ func IsVirtuousTest(t *testing.T, factory Factory) {
 		BetaRogue:         1,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if !graph.IsVirtuous(Red) {
 		t.Fatalf("Should be virtuous")
@@ -477,6 +486,7 @@ func IsVirtuousTest(t *testing.T, factory Factory) {
 
 func QuiesceTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -488,7 +498,7 @@ func QuiesceTest(t *testing.T, factory Factory) {
 		BetaRogue:         1,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if !graph.Quiesce() {
 		t.Fatalf("Should quiesce")
@@ -505,6 +515,7 @@ func QuiesceTest(t *testing.T, factory Factory) {
 
 func AcceptingDependencyTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -525,7 +536,7 @@ func AcceptingDependencyTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(Red); err != nil {
 		t.Fatal(err)
@@ -621,6 +632,7 @@ func (tx *singleAcceptTx) Accept() error {
 
 func AcceptingSlowDependencyTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -646,7 +658,7 @@ func AcceptingSlowDependencyTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(Red); err != nil {
 		t.Fatal(err)
@@ -747,6 +759,7 @@ func AcceptingSlowDependencyTest(t *testing.T, factory Factory) {
 
 func RejectingDependencyTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -767,7 +780,7 @@ func RejectingDependencyTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(Red); err != nil {
 		t.Fatal(err)
@@ -832,6 +845,7 @@ func RejectingDependencyTest(t *testing.T, factory Factory) {
 
 func VacuouslyAcceptedTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -848,7 +862,7 @@ func VacuouslyAcceptedTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(purple); err != nil {
 		t.Fatal(err)
@@ -861,6 +875,7 @@ func VacuouslyAcceptedTest(t *testing.T, factory Factory) {
 
 func ConflictsTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -872,7 +887,7 @@ func ConflictsTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	conflictInputID := ids.Empty.Prefix(0)
 
@@ -915,6 +930,7 @@ func ConflictsTest(t *testing.T, factory Factory) {
 
 func VirtuousDependsOnRogueTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -926,7 +942,7 @@ func VirtuousDependsOnRogueTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	rogue1 := &TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.Empty.Prefix(0),
@@ -980,6 +996,7 @@ func VirtuousDependsOnRogueTest(t *testing.T, factory Factory) {
 
 func ErrorOnVacuouslyAcceptedTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -997,7 +1014,7 @@ func ErrorOnVacuouslyAcceptedTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(purple); err == nil {
 		t.Fatalf("Should have errored on acceptance")
@@ -1006,6 +1023,7 @@ func ErrorOnVacuouslyAcceptedTest(t *testing.T, factory Factory) {
 
 func ErrorOnAcceptedTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -1024,7 +1042,7 @@ func ErrorOnAcceptedTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(purple); err != nil {
 		t.Fatal(err)
@@ -1039,6 +1057,7 @@ func ErrorOnAcceptedTest(t *testing.T, factory Factory) {
 
 func ErrorOnRejectingLowerConfidenceConflictTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -1065,7 +1084,7 @@ func ErrorOnRejectingLowerConfidenceConflictTest(t *testing.T, factory Factory) 
 		BetaRogue:         1,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(purple); err != nil {
 		t.Fatal(err)
@@ -1082,6 +1101,7 @@ func ErrorOnRejectingLowerConfidenceConflictTest(t *testing.T, factory Factory) 
 
 func ErrorOnRejectingHigherConfidenceConflictTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -1108,7 +1128,7 @@ func ErrorOnRejectingHigherConfidenceConflictTest(t *testing.T, factory Factory)
 		BetaRogue:         1,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(pink); err != nil {
 		t.Fatal(err)
@@ -1125,6 +1145,7 @@ func ErrorOnRejectingHigherConfidenceConflictTest(t *testing.T, factory Factory)
 
 func UTXOCleanupTest(t *testing.T, factory Factory) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -1136,7 +1157,7 @@ func UTXOCleanupTest(t *testing.T, factory Factory) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	err := graph.Initialize(snow.DefaultContextTest(), params)
+	err := graph.Initialize(snow.DefaultContextTest(), params, txManager)
 	assert.NoError(t, err)
 
 	err = graph.Add(Red)
@@ -1172,6 +1193,7 @@ func UTXOCleanupTest(t *testing.T, factory Factory) {
 
 func StringTest(t *testing.T, factory Factory, prefix string) {
 	Setup()
+	txManager := &TestTxManager{}
 
 	graph := factory.New()
 
@@ -1183,7 +1205,7 @@ func StringTest(t *testing.T, factory Factory, prefix string) {
 		BetaRogue:         2,
 		ConcurrentRepolls: 1,
 	}
-	graph.Initialize(snow.DefaultContextTest(), params)
+	graph.Initialize(snow.DefaultContextTest(), params, txManager)
 
 	if err := graph.Add(Red); err != nil {
 		t.Fatal(err)

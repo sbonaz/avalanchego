@@ -73,7 +73,7 @@ func MetricsTest(t *testing.T, factory Factory) {
 			Namespace: params.Namespace,
 			Name:      "vtx_processing",
 		}))
-		avl.Initialize(ctx, params, nil, vtxGetter)
+		avl.Initialize(ctx, params, nil, vtxGetter, &snowstorm.TestTxManager{})
 	}
 	{
 		avl := factory.New()
@@ -93,7 +93,7 @@ func MetricsTest(t *testing.T, factory Factory) {
 			Namespace: params.Namespace,
 			Name:      "vtx_accepted",
 		}))
-		avl.Initialize(ctx, params, nil, vtxGetter)
+		avl.Initialize(ctx, params, nil, vtxGetter, &snowstorm.TestTxManager{})
 	}
 	{
 		avl := factory.New()
@@ -113,7 +113,7 @@ func MetricsTest(t *testing.T, factory Factory) {
 			Namespace: params.Namespace,
 			Name:      "vtx_rejected",
 		}))
-		avl.Initialize(ctx, params, nil, vtxGetter)
+		avl.Initialize(ctx, params, nil, vtxGetter, &snowstorm.TestTxManager{})
 	}
 }
 
@@ -136,7 +136,7 @@ func ParamsTest(t *testing.T, factory Factory) {
 		BatchSize: 1,
 	}
 
-	if err := avl.Initialize(ctx, params, nil, vtxGetter); err != nil {
+	if err := avl.Initialize(ctx, params, nil, vtxGetter, &snowstorm.TestTxManager{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -194,7 +194,7 @@ func AddTest(t *testing.T, factory Factory) {
 
 	utxos := []ids.ID{ids.GenerateTestID()}
 
-	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter); err != nil {
+	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -332,6 +332,7 @@ func VertexIssuedTest(t *testing.T, factory Factory) {
 	utxos := []ids.ID{ids.GenerateTestID()}
 
 	vtxGetter := &testVertexGetter{}
+
 	vtxGetter.GetVertexF = func(id ids.ID) (Vertex, error) {
 		if id.Equals(vts[0].ID()) {
 			return vts[0], nil
@@ -342,7 +343,7 @@ func VertexIssuedTest(t *testing.T, factory Factory) {
 		return nil, errors.New("")
 	}
 
-	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter); err != nil {
+	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -433,7 +434,7 @@ func TxIssuedTest(t *testing.T, factory Factory) {
 		return nil, errors.New("")
 	}
 
-	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter); err != nil {
+	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -506,7 +507,7 @@ func VirtuousTest(t *testing.T, factory Factory) {
 		return nil, errors.New("")
 	}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	if virtuous := avl.Virtuous(); virtuous.Len() != 2 {
 		t.Fatalf("Wrong number of virtuous.")
@@ -680,7 +681,7 @@ func VirtuousSkippedUpdateTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	if virtuous := avl.Virtuous(); virtuous.Len() != 2 {
 		t.Fatalf("Wrong number of virtuous.")
@@ -802,7 +803,7 @@ func VotingTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -933,7 +934,7 @@ func IgnoreInvalidVotingTest(t *testing.T, factory Factory) {
 		return nil, errors.New("")
 	}
 
-	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter); err != nil {
+	if err := avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1051,7 +1052,7 @@ func TransitiveVotingTest(t *testing.T, factory Factory) {
 		return nil, errors.New("")
 	}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	// tx0 and tx1 don't conflict
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
@@ -1204,7 +1205,7 @@ func SplitVotingTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1313,7 +1314,7 @@ func TransitiveRejectionTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	// tx0 and tx1 conflict
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
@@ -1480,7 +1481,7 @@ func IsVirtuousTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	if virtuous := avl.Virtuous(); virtuous.Len() != 2 {
 		t.Fatalf("Wrong number of virtuous.")
@@ -1599,7 +1600,7 @@ func QuiesceTest(t *testing.T, factory Factory) {
 		return nil, errors.New("")
 	}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1739,7 +1740,7 @@ func OrphansTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1871,7 +1872,7 @@ func ErrorOnVacuousAcceptTest(t *testing.T, factory Factory) {
 		return nil, errors.New("")
 	}
 
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -1938,7 +1939,7 @@ func ErrorOnTxAcceptTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -2012,7 +2013,7 @@ func ErrorOnVtxAcceptTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -2087,7 +2088,7 @@ func ErrorOnVtxRejectTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -2185,7 +2186,7 @@ func ErrorOnParentVtxRejectTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),
@@ -2300,7 +2301,7 @@ func ErrorOnTransitiveVtxRejectTest(t *testing.T, factory Factory) {
 		t.Fatal("asked for unexpected vtx")
 		return nil, errors.New("")
 	}
-	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter)
+	avl.Initialize(snow.DefaultContextTest(), params, vts, vtxGetter, &snowstorm.TestTxManager{})
 
 	tx0 := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.GenerateTestID(),

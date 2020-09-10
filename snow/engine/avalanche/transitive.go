@@ -508,14 +508,11 @@ func (t *Transitive) issue(vtx avalanche.Vertex) error {
 	if err != nil {
 		return err
 	}
-	for _, tx := range txs {
-		if fetchedTx, err := t.GetTx(tx.ID()); err == nil { // If we already have a tx with this ID, reference that instead
-			tx = fetchedTx
+	txs = t.update(txs...) // Get latest version of txs
+	for i := range txs {
+		if txs[i].Status() == choices.Processing {
+			t.txManager.PinTx(txs[i]) // Pin this transaction in memory until it is decided or dropped
 		}
-		if tx.Status() == choices.Processing {
-			t.txManager.PinTx(tx) // Pin this transaction in memory until it is decided or dropped
-		}
-
 	}
 
 	txIDs := ids.Set{}
@@ -686,6 +683,17 @@ func (t *Transitive) sendRequest(vdr ids.ShortID, vtxID ids.ID) {
 	t.outstandingVtxReqs.Add(vdr, t.RequestID, vtxID) // Mark that there is an outstanding request for this vertex
 	t.Sender.Get(vdr, t.RequestID, vtxID)
 	t.numVtxRequests.Set(float64(t.outstandingVtxReqs.Len())) // Tracks performance statistics
+}
+
+// Update deduplicates the transactions in [txs] so they have the most up to date information
+// and so we don't have many copies of a tx in memory
+func (t *Transitive) update(txs ...snowstorm.Tx) []snowstorm.Tx {
+	for i := range txs {
+		if fetchedTx, err := t.GetTx(txs[i].ID()); err == nil { // If we already have a tx with this ID, reference that instead
+			txs[i] = fetchedTx
+		}
+	}
+	return txs
 }
 
 // A vertex.Manager instance where the GetVertex function is replaced

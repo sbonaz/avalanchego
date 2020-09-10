@@ -4,24 +4,13 @@
 package avm
 
 import (
-	"bytes"
-	"fmt"
-	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 
 	"github.com/ava-labs/avalanche-go/api"
 	"github.com/ava-labs/avalanche-go/api/keystore"
 	"github.com/ava-labs/avalanche-go/chains/atomic"
 	"github.com/ava-labs/avalanche-go/ids"
-	"github.com/ava-labs/avalanche-go/snow/choices"
-	"github.com/ava-labs/avalanche-go/utils/constants"
-	"github.com/ava-labs/avalanche-go/utils/crypto"
 	"github.com/ava-labs/avalanche-go/utils/formatting"
-	"github.com/ava-labs/avalanche-go/utils/json"
-	"github.com/ava-labs/avalanche-go/vms/components/avax"
-	"github.com/ava-labs/avalanche-go/vms/secp256k1fx"
 )
 
 func setup(t *testing.T) ([]byte, *VM, *Service, *atomic.Memory) {
@@ -81,6 +70,7 @@ func TestServiceIssueTx(t *testing.T) {
 	}
 }
 
+/*
 func TestServiceGetTxStatus(t *testing.T) {
 	genesisBytes, vm, s, _ := setup(t)
 	defer func() {
@@ -1010,3 +1000,4 @@ func TestImportAVAX(t *testing.T) {
 		t.Fatalf("Failed to import AVAX due to %s", err)
 	}
 }
+*/

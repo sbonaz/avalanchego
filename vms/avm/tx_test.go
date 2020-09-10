@@ -16,13 +16,12 @@ import (
 )
 
 func TestTxNil(t *testing.T) {
-	ctx := NewContext(t)
-	c := codec.NewDefault()
 	tx := (*Tx)(nil)
-	if err := tx.SyntacticVerify(ctx, c, ids.Empty, 0, 1); err == nil {
+	if err := tx.SyntacticVerify(); err == nil {
 		t.Fatalf("Should have errored due to nil tx")
-	}
-	if err := tx.SemanticVerify(nil, nil); err == nil {
+	} else if err := tx.SemanticVerify(); err == nil {
+		t.Fatalf("Should have errored due to nil tx")
+	} else if err := tx.Verify(); err == nil {
 		t.Fatalf("Should have errored due to nil tx")
 	}
 }
@@ -43,20 +42,19 @@ func setupCodec() codec.Codec {
 }
 
 func TestTxEmpty(t *testing.T) {
-	ctx := NewContext(t)
-	c := setupCodec()
 	tx := &Tx{}
-	if err := tx.SyntacticVerify(ctx, c, ids.Empty, 0, 1); err == nil {
+	if err := tx.SyntacticVerify(); err == nil {
 		t.Fatalf("Should have errored due to nil tx")
 	}
 }
 
 func TestTxInvalidCredential(t *testing.T) {
-	ctx := NewContext(t)
 	c := setupCodec()
 	c.RegisterType(&avax.TestVerifiable{})
+	_, _, vm, _ := GenesisVM(t)
 
 	tx := &Tx{
+		vm: vm,
 		UnsignedTx: &BaseTx{BaseTx: avax.BaseTx{
 			NetworkID:    networkID,
 			BlockchainID: chainID,
@@ -82,17 +80,18 @@ func TestTxInvalidCredential(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := tx.SyntacticVerify(ctx, c, ids.Empty, 0, 1); err == nil {
+	if err := tx.SyntacticVerify(); err == nil {
 		t.Fatalf("Tx should have failed due to an invalid credential")
 	}
 }
 
 func TestTxInvalidUnsignedTx(t *testing.T) {
-	ctx := NewContext(t)
 	c := setupCodec()
 	c.RegisterType(&avax.TestVerifiable{})
+	_, _, vm, _ := GenesisVM(t)
 
 	tx := &Tx{
+		vm: vm,
 		UnsignedTx: &BaseTx{BaseTx: avax.BaseTx{
 			NetworkID:    networkID,
 			BlockchainID: chainID,
@@ -137,18 +136,18 @@ func TestTxInvalidUnsignedTx(t *testing.T) {
 	if err := tx.SignSECP256K1Fx(c, nil); err != nil {
 		t.Fatal(err)
 	}
-
-	if err := tx.SyntacticVerify(ctx, c, ids.Empty, 0, 1); err == nil {
+	if err := tx.SyntacticVerify(); err == nil {
 		t.Fatalf("Tx should have failed due to an invalid unsigned tx")
 	}
 }
 
 func TestTxInvalidNumberOfCredentials(t *testing.T) {
-	ctx := NewContext(t)
 	c := setupCodec()
 	c.RegisterType(&avax.TestVerifiable{})
+	_, _, vm, _ := GenesisVM(t)
 
 	tx := &Tx{
+		vm: vm,
 		UnsignedTx: &BaseTx{BaseTx: avax.BaseTx{
 			NetworkID:    networkID,
 			BlockchainID: chainID,
@@ -184,8 +183,7 @@ func TestTxInvalidNumberOfCredentials(t *testing.T) {
 	if err := tx.SignSECP256K1Fx(c, nil); err != nil {
 		t.Fatal(err)
 	}
-
-	if err := tx.SyntacticVerify(ctx, c, ids.Empty, 0, 1); err == nil {
+	if err := tx.SyntacticVerify(); err == nil {
 		t.Fatalf("Tx should have failed due to an invalid unsigned tx")
 	}
 }

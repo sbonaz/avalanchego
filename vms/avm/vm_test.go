@@ -1039,7 +1039,6 @@ func TestTxNotCached(t *testing.T) {
 	}
 	db.OnPut = func([]byte, []byte) error { return nil }
 	vm.state.state.DB = db
-	vm.state.uniqueTx.Flush()
 	vm.state.state.Cache.Flush()
 
 	_, err = vm.ParseTx(txBytes)
