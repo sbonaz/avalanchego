@@ -16,42 +16,41 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ava-labs/gecko/api"
-	"github.com/ava-labs/gecko/api/admin"
-	"github.com/ava-labs/gecko/api/health"
-	"github.com/ava-labs/gecko/api/info"
-	"github.com/ava-labs/gecko/api/keystore"
-	"github.com/ava-labs/gecko/api/metrics"
-	"github.com/ava-labs/gecko/chains"
-	"github.com/ava-labs/gecko/chains/atomic"
-	"github.com/ava-labs/gecko/database"
-	"github.com/ava-labs/gecko/database/meterdb"
-	"github.com/ava-labs/gecko/database/prefixdb"
-	"github.com/ava-labs/gecko/genesis"
-	"github.com/ava-labs/gecko/ids"
-	"github.com/ava-labs/gecko/ipcs"
-	"github.com/ava-labs/gecko/network"
-	"github.com/ava-labs/gecko/snow/networking/timeout"
-	"github.com/ava-labs/gecko/snow/triggers"
-	"github.com/ava-labs/gecko/snow/validators"
-	"github.com/ava-labs/gecko/utils"
-	"github.com/ava-labs/gecko/utils/constants"
-	"github.com/ava-labs/gecko/utils/hashing"
-	"github.com/ava-labs/gecko/utils/logging"
-	"github.com/ava-labs/gecko/utils/timer"
-	"github.com/ava-labs/gecko/utils/wrappers"
-	"github.com/ava-labs/gecko/version"
-	"github.com/ava-labs/gecko/vms"
-	"github.com/ava-labs/gecko/vms/avm"
-	"github.com/ava-labs/gecko/vms/nftfx"
-	"github.com/ava-labs/gecko/vms/platformvm"
-	"github.com/ava-labs/gecko/vms/propertyfx"
-	"github.com/ava-labs/gecko/vms/rpcchainvm"
-	"github.com/ava-labs/gecko/vms/secp256k1fx"
-	"github.com/ava-labs/gecko/vms/spchainvm"
-	"github.com/ava-labs/gecko/vms/timestampvm"
+	"github.com/ava-labs/avalanche-go/api"
+	"github.com/ava-labs/avalanche-go/api/admin"
+	"github.com/ava-labs/avalanche-go/api/health"
+	"github.com/ava-labs/avalanche-go/api/info"
+	"github.com/ava-labs/avalanche-go/api/keystore"
+	"github.com/ava-labs/avalanche-go/api/metrics"
+	"github.com/ava-labs/avalanche-go/chains"
+	"github.com/ava-labs/avalanche-go/chains/atomic"
+	"github.com/ava-labs/avalanche-go/database"
+	"github.com/ava-labs/avalanche-go/database/meterdb"
+	"github.com/ava-labs/avalanche-go/database/prefixdb"
+	"github.com/ava-labs/avalanche-go/genesis"
+	"github.com/ava-labs/avalanche-go/ids"
+	"github.com/ava-labs/avalanche-go/ipcs"
+	"github.com/ava-labs/avalanche-go/network"
+	"github.com/ava-labs/avalanche-go/snow/networking/timeout"
+	"github.com/ava-labs/avalanche-go/snow/triggers"
+	"github.com/ava-labs/avalanche-go/snow/validators"
+	"github.com/ava-labs/avalanche-go/utils"
+	"github.com/ava-labs/avalanche-go/utils/constants"
+	"github.com/ava-labs/avalanche-go/utils/hashing"
+	"github.com/ava-labs/avalanche-go/utils/logging"
+	"github.com/ava-labs/avalanche-go/utils/timer"
+	"github.com/ava-labs/avalanche-go/utils/wrappers"
+	"github.com/ava-labs/avalanche-go/version"
+	"github.com/ava-labs/avalanche-go/vms"
+	"github.com/ava-labs/avalanche-go/vms/avm"
+	"github.com/ava-labs/avalanche-go/vms/nftfx"
+	"github.com/ava-labs/avalanche-go/vms/platformvm"
+	"github.com/ava-labs/avalanche-go/vms/propertyfx"
+	"github.com/ava-labs/avalanche-go/vms/rpcchainvm"
+	"github.com/ava-labs/avalanche-go/vms/secp256k1fx"
+	"github.com/ava-labs/avalanche-go/vms/timestampvm"
 
-	ipcsapi "github.com/ava-labs/gecko/api/ipcs"
+	ipcsapi "github.com/ava-labs/avalanche-go/api/ipcs"
 )
 
 // Networking constants
@@ -63,7 +62,7 @@ var (
 	genesisHashKey = []byte("genesisID")
 
 	// Version is the version of this code
-	Version       = version.NewDefaultVersion("avalanche", 0, 7, 0)
+	Version       = version.NewDefaultVersion(constants.PlatformName, 0, 8, 0)
 	versionParser = version.NewDefaultParser()
 )
 
@@ -390,10 +389,17 @@ func (n *Node) initChains(genesisBytes []byte, avaxAssetID ids.ID) error {
 }
 
 // initAPIServer initializes the server that handles HTTP calls
-func (n *Node) initAPIServer() {
+func (n *Node) initAPIServer() error {
 	n.Log.Info("Initializing API server")
 
-	n.APIServer.Initialize(n.Log, n.LogFactory, n.Config.HTTPHost, n.Config.HTTPPort)
+	return n.APIServer.Initialize(
+		n.Log,
+		n.LogFactory,
+		n.Config.HTTPHost,
+		n.Config.HTTPPort,
+		n.Config.APIRequireAuthToken,
+		n.Config.APIAuthPassword,
+	)
 }
 
 // Create the vmManager, chainManager and register the following vms:
@@ -413,7 +419,7 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 	criticalChains.Add(constants.PlatformChainID, createAVMTx.ID())
 
 	timeoutManager := timeout.Manager{}
-	n.Config.NetworkConfig.Namespace = "gecko"
+	n.Config.NetworkConfig.Namespace = constants.PlatformName
 	n.Config.NetworkConfig.Registerer = n.Config.ConsensusParams.Metrics
 	if err := timeoutManager.Initialize(&n.Config.NetworkConfig); err != nil {
 		return err
@@ -478,7 +484,6 @@ func (n *Node) initChainManager(avaxAssetID ids.ID) error {
 		n.vmManager.RegisterVMFactory(genesis.EVMID, &rpcchainvm.Factory{
 			Path: filepath.Join(n.Config.PluginDir, "evm"),
 		}),
-		n.vmManager.RegisterVMFactory(spchainvm.ID, &spchainvm.Factory{}),
 		n.vmManager.RegisterVMFactory(timestampvm.ID, &timestampvm.Factory{}),
 		n.vmManager.RegisterVMFactory(secp256k1fx.ID, &secp256k1fx.Factory{}),
 		n.vmManager.RegisterVMFactory(nftfx.ID, &nftfx.Factory{}),
@@ -531,7 +536,8 @@ func (n *Node) initMetricsAPI() error {
 
 	n.Log.Info("initializing metrics API")
 
-	db, err := meterdb.New("gecko_db", registry, n.DB)
+	dbNamespace := fmt.Sprintf("%s_db", constants.PlatformName)
+	db, err := meterdb.New(dbNamespace, registry, n.DB)
 	if err != nil {
 		return err
 	}
@@ -661,7 +667,7 @@ func (n *Node) Initialize(Config *Config, logger logging.Logger, logFactory logg
 	n.Log = logger
 	n.LogFactory = logFactory
 	n.Config = Config
-	n.Log.Info("Gecko version is: %s", Version)
+	n.Log.Info("Node version is: %s", Version)
 
 	httpLog, err := logFactory.MakeSubdir("http")
 	if err != nil {
@@ -682,7 +688,9 @@ func (n *Node) Initialize(Config *Config, logger logging.Logger, logFactory logg
 	}
 
 	// Start HTTP APIs
-	n.initAPIServer()                           // Start the API Server
+	if err := n.initAPIServer(); err != nil { // Start the API Server
+		return fmt.Errorf("couldn't initialize API server: %w", err)
+	}
 	if err := n.initKeystoreAPI(); err != nil { // Start the Keystore API
 		return fmt.Errorf("couldn't initialize keystore API: %w", err)
 	}

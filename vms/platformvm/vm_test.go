@@ -14,37 +14,37 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/ava-labs/gecko/chains"
-	"github.com/ava-labs/gecko/chains/atomic"
-	"github.com/ava-labs/gecko/database"
-	"github.com/ava-labs/gecko/database/memdb"
-	"github.com/ava-labs/gecko/database/prefixdb"
-	"github.com/ava-labs/gecko/ids"
-	"github.com/ava-labs/gecko/snow"
-	"github.com/ava-labs/gecko/snow/choices"
-	"github.com/ava-labs/gecko/snow/consensus/snowball"
-	"github.com/ava-labs/gecko/snow/engine/common"
-	"github.com/ava-labs/gecko/snow/engine/common/queue"
-	"github.com/ava-labs/gecko/snow/engine/snowman/bootstrap"
-	"github.com/ava-labs/gecko/snow/networking/router"
-	"github.com/ava-labs/gecko/snow/networking/sender"
-	"github.com/ava-labs/gecko/snow/networking/throttler"
-	"github.com/ava-labs/gecko/snow/networking/timeout"
-	"github.com/ava-labs/gecko/snow/validators"
-	"github.com/ava-labs/gecko/utils/constants"
-	"github.com/ava-labs/gecko/utils/crypto"
-	"github.com/ava-labs/gecko/utils/formatting"
-	"github.com/ava-labs/gecko/utils/json"
-	"github.com/ava-labs/gecko/utils/logging"
-	"github.com/ava-labs/gecko/utils/timer"
-	"github.com/ava-labs/gecko/utils/units"
-	"github.com/ava-labs/gecko/vms/components/avax"
-	"github.com/ava-labs/gecko/vms/components/core"
-	"github.com/ava-labs/gecko/vms/secp256k1fx"
-	"github.com/ava-labs/gecko/vms/timestampvm"
+	"github.com/ava-labs/avalanche-go/chains"
+	"github.com/ava-labs/avalanche-go/chains/atomic"
+	"github.com/ava-labs/avalanche-go/database"
+	"github.com/ava-labs/avalanche-go/database/memdb"
+	"github.com/ava-labs/avalanche-go/database/prefixdb"
+	"github.com/ava-labs/avalanche-go/ids"
+	"github.com/ava-labs/avalanche-go/snow"
+	"github.com/ava-labs/avalanche-go/snow/choices"
+	"github.com/ava-labs/avalanche-go/snow/consensus/snowball"
+	"github.com/ava-labs/avalanche-go/snow/engine/common"
+	"github.com/ava-labs/avalanche-go/snow/engine/common/queue"
+	"github.com/ava-labs/avalanche-go/snow/engine/snowman/bootstrap"
+	"github.com/ava-labs/avalanche-go/snow/networking/router"
+	"github.com/ava-labs/avalanche-go/snow/networking/sender"
+	"github.com/ava-labs/avalanche-go/snow/networking/throttler"
+	"github.com/ava-labs/avalanche-go/snow/networking/timeout"
+	"github.com/ava-labs/avalanche-go/snow/validators"
+	"github.com/ava-labs/avalanche-go/utils/constants"
+	"github.com/ava-labs/avalanche-go/utils/crypto"
+	"github.com/ava-labs/avalanche-go/utils/formatting"
+	"github.com/ava-labs/avalanche-go/utils/json"
+	"github.com/ava-labs/avalanche-go/utils/logging"
+	"github.com/ava-labs/avalanche-go/utils/timer"
+	"github.com/ava-labs/avalanche-go/utils/units"
+	"github.com/ava-labs/avalanche-go/vms/components/avax"
+	"github.com/ava-labs/avalanche-go/vms/components/core"
+	"github.com/ava-labs/avalanche-go/vms/secp256k1fx"
+	"github.com/ava-labs/avalanche-go/vms/timestampvm"
 
-	smcon "github.com/ava-labs/gecko/snow/consensus/snowman"
-	smeng "github.com/ava-labs/gecko/snow/engine/snowman"
+	smcon "github.com/ava-labs/avalanche-go/snow/consensus/snowman"
+	smeng "github.com/ava-labs/avalanche-go/snow/engine/snowman"
 )
 
 var (
@@ -67,8 +67,8 @@ var (
 
 	minStake = 5 * units.MilliAvax
 
-	// amount all genesis validators stake in defaultVM
-	defaultStakeAmount uint64 = 100 * minStake
+	// amount all genesis validators have in defaultVM
+	defaultBalance uint64 = 100 * minStake
 
 	// subnet that exists at genesis in defaultVM
 	// Its controlKeys are keys[0], keys[1], keys[2]
@@ -135,12 +135,12 @@ func defaultGenesis() (*BuildGenesisArgs, []byte) {
 			panic(err)
 		}
 		genesisUTXOs[i] = APIUTXO{
-			Amount:  json.Uint64(defaultStakeAmount),
+			Amount:  json.Uint64(defaultBalance),
 			Address: addr,
 		}
 	}
 
-	genesisValidators := make([]FormattedAPIPrimaryValidator, len(keys))
+	genesisValidators := make([]APIPrimaryValidator, len(keys))
 	for i, key := range keys {
 		weight := json.Uint64(defaultWeight)
 		id := key.PublicKey().Address()
@@ -148,26 +148,32 @@ func defaultGenesis() (*BuildGenesisArgs, []byte) {
 		if err != nil {
 			panic(err)
 		}
-		genesisValidators[i] = FormattedAPIPrimaryValidator{
-			FormattedAPIValidator: FormattedAPIValidator{
+		genesisValidators[i] = APIPrimaryValidator{
+			APIStaker: APIStaker{
 				StartTime: json.Uint64(defaultValidateStartTime.Unix()),
 				EndTime:   json.Uint64(defaultValidateEndTime.Unix()),
 				Weight:    &weight,
-				ID:        id.PrefixedString(constants.NodeIDPrefix),
+				NodeID:    id.PrefixedString(constants.NodeIDPrefix),
 			},
-			RewardAddress:     addr,
-			DelegationFeeRate: NumberOfShares,
+			RewardOwner: &APIOwner{
+				Threshold: 1,
+				Addresses: []string{addr},
+			},
+			DelegationFee: PercentDenominator,
 		}
 	}
 
 	buildGenesisArgs := BuildGenesisArgs{
-		NetworkID:   json.Uint32(testNetworkID),
-		AvaxAssetID: avaxAssetID,
-		UTXOs:       genesisUTXOs,
-		Validators:  genesisValidators,
-		Chains:      nil,
-		Time:        json.Uint64(defaultGenesisTime.Unix()),
+		NetworkID:     json.Uint32(testNetworkID),
+		AvaxAssetID:   avaxAssetID,
+		UTXOs:         genesisUTXOs,
+		Validators:    genesisValidators,
+		Chains:        nil,
+		Time:          json.Uint64(defaultGenesisTime.Unix()),
+		InitialSupply: json.Uint64(360 * units.MegaAvax),
 	}
+	// TODO: Remove
+	InitialSupply = 360 * units.MegaAvax
 
 	buildGenesisResponse := BuildGenesisReply{}
 	platformvmSS := StaticService{}
@@ -341,7 +347,7 @@ func TestAddValidatorCommit(t *testing.T) {
 		uint64(endTime.Unix()),
 		ID,
 		ID,
-		NumberOfShares,
+		PercentDenominator,
 		[]*crypto.PrivateKeySECP256K1R{keys[0]},
 	)
 	if err != nil {
@@ -421,7 +427,7 @@ func TestInvalidAddValidatorCommit(t *testing.T) {
 		uint64(endTime.Unix()),
 		ID,
 		ID,
-		NumberOfShares,
+		PercentDenominator,
 		[]*crypto.PrivateKeySECP256K1R{keys[0]},
 	); err != nil {
 		t.Fatal(err)
@@ -467,7 +473,7 @@ func TestAddValidatorReject(t *testing.T) {
 		uint64(endTime.Unix()),
 		ID,
 		ID,
-		NumberOfShares,
+		PercentDenominator,
 		[]*crypto.PrivateKeySECP256K1R{keys[0]},
 	)
 	if err != nil {
@@ -1697,8 +1703,8 @@ func TestBootstrapPartiallyAccepted(t *testing.T) {
 
 	timeoutManager := timeout.Manager{}
 	timeoutManager.Initialize(&timer.AdaptiveTimeoutConfig{
-		InitialTimeout:    10 * time.Second,
-		MinimumTimeout:    500 * time.Millisecond,
+		InitialTimeout:    time.Millisecond,
+		MinimumTimeout:    time.Millisecond,
 		MaximumTimeout:    10 * time.Second,
 		TimeoutMultiplier: 1.1,
 		TimeoutReduction:  time.Millisecond,
@@ -1955,7 +1961,7 @@ func TestNextValidatorStartTime(t *testing.T) {
 		uint64(endTime.Unix()),                  // end time
 		vm.Ctx.NodeID,                           // node ID
 		ids.GenerateTestShortID(),               // reward address
-		NumberOfShares,                          // shares
+		PercentDenominator,                      // shares
 		[]*crypto.PrivateKeySECP256K1R{keys[0]}, // key
 	)
 	assert.NoError(t, err)

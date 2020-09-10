@@ -10,19 +10,19 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ava-labs/gecko/api"
-	"github.com/ava-labs/gecko/ids"
-	"github.com/ava-labs/gecko/snow/choices"
-	"github.com/ava-labs/gecko/utils/constants"
-	"github.com/ava-labs/gecko/utils/crypto"
-	"github.com/ava-labs/gecko/utils/formatting"
-	"github.com/ava-labs/gecko/utils/json"
-	"github.com/ava-labs/gecko/vms/components/avax"
-	"github.com/ava-labs/gecko/vms/components/verify"
-	"github.com/ava-labs/gecko/vms/nftfx"
-	"github.com/ava-labs/gecko/vms/secp256k1fx"
+	"github.com/ava-labs/avalanche-go/api"
+	"github.com/ava-labs/avalanche-go/ids"
+	"github.com/ava-labs/avalanche-go/snow/choices"
+	"github.com/ava-labs/avalanche-go/utils/constants"
+	"github.com/ava-labs/avalanche-go/utils/crypto"
+	"github.com/ava-labs/avalanche-go/utils/formatting"
+	"github.com/ava-labs/avalanche-go/utils/json"
+	"github.com/ava-labs/avalanche-go/vms/components/avax"
+	"github.com/ava-labs/avalanche-go/vms/components/verify"
+	"github.com/ava-labs/avalanche-go/vms/nftfx"
+	"github.com/ava-labs/avalanche-go/vms/secp256k1fx"
 
-	safemath "github.com/ava-labs/gecko/utils/math"
+	safemath "github.com/ava-labs/avalanche-go/utils/math"
 )
 
 const (
@@ -443,7 +443,7 @@ func (service *Service) CreateFixedCapAsset(r *http.Request, args *CreateFixedCa
 		return errNoHolders
 	}
 
-	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password)
+	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password, nil)
 	if err != nil {
 		return err
 	}
@@ -549,7 +549,7 @@ func (service *Service) CreateVariableCapAsset(r *http.Request, args *CreateVari
 		return errNoMinters
 	}
 
-	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password)
+	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password, nil)
 	if err != nil {
 		return err
 	}
@@ -652,7 +652,7 @@ func (service *Service) CreateNFTAsset(r *http.Request, args *CreateNFTAssetArgs
 		return errNoMinters
 	}
 
-	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password)
+	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password, nil)
 	if err != nil {
 		return err
 	}
@@ -743,6 +743,9 @@ func (service *Service) CreateAddress(r *http.Request, args *api.UserPass, reply
 	if err != nil {
 		return fmt.Errorf("problem retrieving user '%s': %w", args.Username, err)
 	}
+	// Drop any potential error closing the database to report the original
+	// error
+	defer db.Close()
 
 	user := userState{vm: service.vm}
 
@@ -767,7 +770,10 @@ func (service *Service) CreateAddress(r *http.Request, args *api.UserPass, reply
 	if err != nil {
 		return fmt.Errorf("problem formatting address: %w", err)
 	}
-	return nil
+
+	// Return an error if the DB can't close, this will execute before the above
+	// db close.
+	return db.Close()
 }
 
 // ListAddresses returns all of the addresses controlled by user [args.Username]
@@ -784,17 +790,20 @@ func (service *Service) ListAddresses(_ *http.Request, args *api.UserPass, respo
 	user := userState{vm: service.vm}
 	addresses, err := user.Addresses(db)
 	if err != nil {
-		return nil
+		return db.Close()
 	}
 
 	for _, address := range addresses {
 		addr, err := service.vm.FormatLocalAddress(address)
 		if err != nil {
+			// Drop any potential error closing the database to report the
+			// original error
+			_ = db.Close()
 			return fmt.Errorf("problem formatting address: %w", err)
 		}
 		response.Addresses = append(response.Addresses, addr)
 	}
-	return nil
+	return db.Close()
 }
 
 // ExportKeyArgs are arguments for ExportKey
@@ -827,11 +836,14 @@ func (service *Service) ExportKey(r *http.Request, args *ExportKeyArgs, reply *E
 
 	sk, err := user.Key(db, addr)
 	if err != nil {
+		// Drop any potential error closing the database to report the original
+		// error
+		_ = db.Close()
 		return fmt.Errorf("problem retrieving private key: %w", err)
 	}
 
 	reply.PrivateKey = constants.SecretKeyPrefix + formatting.CB58{Bytes: sk.Bytes()}.String()
-	return nil
+	return db.Close()
 }
 
 // ImportKeyArgs are arguments for ImportKey
@@ -854,6 +866,10 @@ func (service *Service) ImportKey(r *http.Request, args *ImportKeyArgs, reply *a
 	if err != nil {
 		return fmt.Errorf("problem retrieving data: %w", err)
 	}
+
+	// Drop any potential error closing the database to report the original
+	// error
+	defer db.Close()
 
 	user := userState{vm: service.vm}
 
@@ -886,7 +902,7 @@ func (service *Service) ImportKey(r *http.Request, args *ImportKeyArgs, reply *a
 	}
 	for _, address := range addresses {
 		if newAddress.Equals(address) {
-			return nil
+			return db.Close()
 		}
 	}
 
@@ -895,7 +911,7 @@ func (service *Service) ImportKey(r *http.Request, args *ImportKeyArgs, reply *a
 		return fmt.Errorf("problem saving addresses: %w", err)
 	}
 
-	return nil
+	return db.Close()
 }
 
 // SendArgs are arguments for passing into Send requests
@@ -911,6 +927,11 @@ type SendArgs struct {
 
 	// Address of the recipient
 	To string `json:"to"`
+
+	// The addresses to send funds from
+	// If empty, will send from any addresses
+	// controlled by the given user
+	From []string `json:"from"`
 
 	// Memo field
 	Memo string `json:"memo"`
@@ -940,7 +961,15 @@ func (service *Service) Send(r *http.Request, args *SendArgs, reply *api.JsonTxI
 		return fmt.Errorf("problem parsing to address %q: %w", args.To, err)
 	}
 
-	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password)
+	fromAddrs := ids.ShortSet{}
+	for _, addrStr := range args.From {
+		addr, err := service.vm.ParseLocalAddress(addrStr)
+		if err != nil {
+			return fmt.Errorf("couldn't parse 'From' address %s: %w", addrStr, err)
+		}
+		fromAddrs.Add(addr)
+	}
+	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password, fromAddrs)
 	if err != nil {
 		return err
 	}
@@ -1056,7 +1085,7 @@ func (service *Service) Mint(r *http.Request, args *MintArgs, reply *api.JsonTxI
 		return fmt.Errorf("problem parsing to address %q: %w", args.To, err)
 	}
 
-	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password)
+	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password, nil)
 	if err != nil {
 		return err
 	}
@@ -1151,7 +1180,7 @@ func (service *Service) SendNFT(r *http.Request, args *SendNFTArgs, reply *api.J
 		return fmt.Errorf("problem parsing to address %q: %w", args.To, err)
 	}
 
-	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password)
+	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password, nil)
 	if err != nil {
 		return err
 	}
@@ -1247,7 +1276,7 @@ func (service *Service) MintNFT(r *http.Request, args *MintNFTArgs, reply *api.J
 		return fmt.Errorf("problem parsing to address %q: %w", args.To, err)
 	}
 
-	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password)
+	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password, nil)
 	if err != nil {
 		return err
 	}
@@ -1346,7 +1375,7 @@ func (service *Service) ImportAVAX(_ *http.Request, args *ImportAVAXArgs, reply 
 		return fmt.Errorf("problem parsing to address %q: %w", args.To, err)
 	}
 
-	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password)
+	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password, nil)
 	if err != nil {
 		return err
 	}
@@ -1463,7 +1492,7 @@ func (service *Service) ExportAVAX(_ *http.Request, args *ExportAVAXArgs, reply 
 		return errInvalidAmount
 	}
 
-	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password)
+	utxos, kc, err := service.vm.LoadUser(args.Username, args.Password, nil)
 	if err != nil {
 		return err
 	}

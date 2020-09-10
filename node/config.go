@@ -6,13 +6,13 @@ package node
 import (
 	"time"
 
-	"github.com/ava-labs/gecko/database"
-	"github.com/ava-labs/gecko/nat"
-	"github.com/ava-labs/gecko/snow/consensus/avalanche"
-	"github.com/ava-labs/gecko/snow/networking/router"
-	"github.com/ava-labs/gecko/utils"
-	"github.com/ava-labs/gecko/utils/logging"
-	"github.com/ava-labs/gecko/utils/timer"
+	"github.com/ava-labs/avalanche-go/database"
+	"github.com/ava-labs/avalanche-go/nat"
+	"github.com/ava-labs/avalanche-go/snow/consensus/avalanche"
+	"github.com/ava-labs/avalanche-go/snow/networking/router"
+	"github.com/ava-labs/avalanche-go/utils"
+	"github.com/ava-labs/avalanche-go/utils/logging"
+	"github.com/ava-labs/avalanche-go/utils/timer"
 )
 
 // Config contains all of the configurations of an Avalanche node.
@@ -60,11 +60,13 @@ type Config struct {
 	BootstrapPeers []*Peer
 
 	// HTTP configuration
-	HTTPHost      string
-	HTTPPort      uint16
-	HTTPSEnabled  bool
-	HTTPSKeyFile  string
-	HTTPSCertFile string
+	HTTPHost            string
+	HTTPPort            uint16
+	HTTPSEnabled        bool
+	HTTPSKeyFile        string
+	HTTPSCertFile       string
+	APIRequireAuthToken bool
+	APIAuthPassword     string
 
 	// Enable/Disable APIs
 	AdminAPIEnabled    bool

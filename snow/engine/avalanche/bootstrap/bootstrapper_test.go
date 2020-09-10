@@ -11,17 +11,18 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/ava-labs/gecko/database/memdb"
-	"github.com/ava-labs/gecko/database/prefixdb"
-	"github.com/ava-labs/gecko/ids"
-	"github.com/ava-labs/gecko/snow"
-	"github.com/ava-labs/gecko/snow/choices"
-	"github.com/ava-labs/gecko/snow/consensus/avalanche"
-	"github.com/ava-labs/gecko/snow/consensus/snowstorm"
-	"github.com/ava-labs/gecko/snow/engine/avalanche/vertex"
-	"github.com/ava-labs/gecko/snow/engine/common"
-	"github.com/ava-labs/gecko/snow/engine/common/queue"
-	"github.com/ava-labs/gecko/snow/validators"
+	"github.com/ava-labs/avalanche-go/database/memdb"
+	"github.com/ava-labs/avalanche-go/database/prefixdb"
+	"github.com/ava-labs/avalanche-go/ids"
+	"github.com/ava-labs/avalanche-go/snow"
+	"github.com/ava-labs/avalanche-go/snow/choices"
+	"github.com/ava-labs/avalanche-go/snow/consensus/avalanche"
+	"github.com/ava-labs/avalanche-go/snow/consensus/snowstorm"
+	"github.com/ava-labs/avalanche-go/snow/engine/avalanche/vertex"
+	"github.com/ava-labs/avalanche-go/snow/engine/common"
+	"github.com/ava-labs/avalanche-go/snow/engine/common/queue"
+	"github.com/ava-labs/avalanche-go/snow/validators"
+	"github.com/ava-labs/avalanche-go/utils/constants"
 )
 
 var (
@@ -112,7 +113,7 @@ func TestBootstrapperSingleFrontier(t *testing.T) {
 	err := bs.Initialize(
 		config,
 		func() error { *finished = true; return nil },
-		fmt.Sprintf("gecko_%s_bs", config.Ctx.ChainID),
+		fmt.Sprintf("%s_%s_bs", constants.PlatformName, config.Ctx.ChainID),
 		prometheus.NewRegistry(),
 	)
 	if err != nil {
@@ -224,7 +225,7 @@ func TestBootstrapperByzantineResponses(t *testing.T) {
 	err := bs.Initialize(
 		config,
 		func() error { *finished = true; return nil },
-		fmt.Sprintf("gecko_%s_bs", config.Ctx.ChainID),
+		fmt.Sprintf("%s_%s_bs", constants.PlatformName, config.Ctx.ChainID),
 		prometheus.NewRegistry(),
 	)
 	if err != nil {
@@ -410,7 +411,7 @@ func TestBootstrapperTxDependencies(t *testing.T) {
 	err := bs.Initialize(
 		config,
 		func() error { *finished = true; return nil },
-		fmt.Sprintf("gecko_%s_bs", config.Ctx.ChainID),
+		fmt.Sprintf("%s_%s_bs", constants.PlatformName, config.Ctx.ChainID),
 		prometheus.NewRegistry(),
 	)
 	if err != nil {
@@ -576,7 +577,7 @@ func TestBootstrapperMissingTxDependency(t *testing.T) {
 	err := bs.Initialize(
 		config,
 		func() error { *finished = true; return nil },
-		fmt.Sprintf("gecko_%s_bs", config.Ctx.ChainID),
+		fmt.Sprintf("%s_%s_bs", constants.PlatformName, config.Ctx.ChainID),
 		prometheus.NewRegistry(),
 	)
 	if err != nil {
@@ -673,7 +674,7 @@ func TestBootstrapperAcceptedFrontier(t *testing.T) {
 	err := bs.Initialize(
 		config,
 		nil,
-		fmt.Sprintf("gecko_%s_bs", config.Ctx.ChainID),
+		fmt.Sprintf("%s_%s_bs", constants.PlatformName, config.Ctx.ChainID),
 		prometheus.NewRegistry(),
 	)
 	if err != nil {
@@ -723,7 +724,7 @@ func TestBootstrapperFilterAccepted(t *testing.T) {
 	err := bs.Initialize(
 		config,
 		func() error { *finished = true; return nil },
-		fmt.Sprintf("gecko_%s_bs", config.Ctx.ChainID),
+		fmt.Sprintf("%s_%s_bs", constants.PlatformName, config.Ctx.ChainID),
 		prometheus.NewRegistry(),
 	)
 	if err != nil {
@@ -809,7 +810,7 @@ func TestBootstrapperIncompleteMultiPut(t *testing.T) {
 	err := bs.Initialize(
 		config,
 		func() error { *finished = true; return nil },
-		fmt.Sprintf("gecko_%s_bs", config.Ctx.ChainID),
+		fmt.Sprintf("%s_%s_bs", constants.PlatformName, config.Ctx.ChainID),
 		prometheus.NewRegistry(),
 	)
 	if err != nil {
@@ -977,7 +978,7 @@ func TestBootstrapperFinalized(t *testing.T) {
 	err := bs.Initialize(
 		config,
 		func() error { *finished = true; return nil },
-		fmt.Sprintf("gecko_%s_bs", config.Ctx.ChainID),
+		fmt.Sprintf("%s_%s_bs", constants.PlatformName, config.Ctx.ChainID),
 		prometheus.NewRegistry(),
 	)
 	if err != nil {
@@ -1120,7 +1121,7 @@ func TestBootstrapperAcceptsMultiPutParents(t *testing.T) {
 	err := bs.Initialize(
 		config,
 		func() error { *finished = true; return nil },
-		fmt.Sprintf("gecko_%s_bs", config.Ctx.ChainID),
+		fmt.Sprintf("%s_%s_bs", constants.PlatformName, config.Ctx.ChainID),
 		prometheus.NewRegistry(),
 	)
 	if err != nil {

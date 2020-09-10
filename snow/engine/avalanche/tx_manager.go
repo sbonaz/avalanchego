@@ -1,10 +1,10 @@
 package avalanche
 
 import (
-	"github.com/ava-labs/gecko/cache"
-	"github.com/ava-labs/gecko/ids"
-	"github.com/ava-labs/gecko/snow/consensus/snowstorm"
-	"github.com/ava-labs/gecko/snow/engine/avalanche/vertex"
+	"github.com/ava-labs/avalanche-go/cache"
+	"github.com/ava-labs/avalanche-go/ids"
+	"github.com/ava-labs/avalanche-go/snow/consensus/snowstorm"
+	"github.com/ava-labs/avalanche-go/snow/engine/avalanche/vertex"
 )
 
 // txManager implements snowstorm.TxGetter

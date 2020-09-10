@@ -12,15 +12,15 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/ava-labs/gecko/ids"
-	"github.com/ava-labs/gecko/snow"
-	"github.com/ava-labs/gecko/snow/engine/common"
-	"github.com/ava-labs/gecko/snow/networking/router"
-	"github.com/ava-labs/gecko/snow/networking/throttler"
-	"github.com/ava-labs/gecko/snow/networking/timeout"
-	"github.com/ava-labs/gecko/snow/validators"
-	"github.com/ava-labs/gecko/utils/logging"
-	"github.com/ava-labs/gecko/utils/timer"
+	"github.com/ava-labs/avalanche-go/ids"
+	"github.com/ava-labs/avalanche-go/snow"
+	"github.com/ava-labs/avalanche-go/snow/engine/common"
+	"github.com/ava-labs/avalanche-go/snow/networking/router"
+	"github.com/ava-labs/avalanche-go/snow/networking/throttler"
+	"github.com/ava-labs/avalanche-go/snow/networking/timeout"
+	"github.com/ava-labs/avalanche-go/snow/validators"
+	"github.com/ava-labs/avalanche-go/utils/logging"
+	"github.com/ava-labs/avalanche-go/utils/timer"
 )
 
 func TestSenderContext(t *testing.T) {
@@ -40,8 +40,8 @@ func TestSenderContext(t *testing.T) {
 func TestTimeout(t *testing.T) {
 	tm := timeout.Manager{}
 	tm.Initialize(&timer.AdaptiveTimeoutConfig{
-		InitialTimeout:    10 * time.Second,
-		MinimumTimeout:    500 * time.Millisecond,
+		InitialTimeout:    time.Millisecond,
+		MinimumTimeout:    time.Millisecond,
 		MaximumTimeout:    10 * time.Second,
 		TimeoutMultiplier: 1.1,
 		TimeoutReduction:  time.Millisecond,
@@ -103,8 +103,8 @@ func TestTimeout(t *testing.T) {
 func TestReliableMessages(t *testing.T) {
 	tm := timeout.Manager{}
 	tm.Initialize(&timer.AdaptiveTimeoutConfig{
-		InitialTimeout:    10 * time.Second,
-		MinimumTimeout:    500 * time.Millisecond,
+		InitialTimeout:    time.Millisecond,
+		MinimumTimeout:    time.Millisecond,
 		MaximumTimeout:    10 * time.Second,
 		TimeoutMultiplier: 1.1,
 		TimeoutReduction:  time.Millisecond,
@@ -177,8 +177,8 @@ func TestReliableMessages(t *testing.T) {
 func TestReliableMessagesToMyself(t *testing.T) {
 	tm := timeout.Manager{}
 	tm.Initialize(&timer.AdaptiveTimeoutConfig{
-		InitialTimeout:    10 * time.Second,
-		MinimumTimeout:    500 * time.Millisecond,
+		InitialTimeout:    time.Millisecond,
+		MinimumTimeout:    time.Millisecond,
 		MaximumTimeout:    10 * time.Second,
 		TimeoutMultiplier: 1.1,
 		TimeoutReduction:  time.Millisecond,
