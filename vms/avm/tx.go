@@ -207,61 +207,6 @@ func (t *Tx) Accept() error {
 	return nil
 }
 
-/*
-// Dependencies returns the set of transactions this transaction builds on
-func (t *Tx) Dependencies() []ids.ID {
-	if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
-		t.vm.ctx.Log.Info("getting dependencies of %s", t.ID())
-	}
-	if len(t.deps) != 0 {
-		return t.deps
-	}
-
-	txIDs := ids.Set{}
-	for _, in := range t.InputUTXOs() {
-		if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
-			t.vm.ctx.Log.Info("in: %v", in)
-		}
-		if in.Symbolic() {
-			if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
-				t.vm.ctx.Log.Info("is symbolic")
-			}
-			continue
-		}
-		txID, _ := in.InputSource()
-		if txIDs.Contains(txID) {
-			if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
-				t.vm.ctx.Log.Info("contains")
-			}
-			continue
-		}
-		txIDs.Add(txID)
-		t.deps = append(t.deps, txID)
-		if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
-			t.vm.ctx.Log.Info("added")
-		}
-	}
-	consumedIDs := t.ConsumedAssetIDs()
-	for _, assetID := range t.AssetIDs().List() {
-		if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
-			t.vm.ctx.Log.Info("assetID: %s", assetID)
-		}
-		if consumedIDs.Contains(assetID) || txIDs.Contains(assetID) {
-			if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
-				t.vm.ctx.Log.Info("contains")
-			}
-			continue
-		}
-		txIDs.Add(assetID)
-		t.deps = append(t.deps, assetID)
-		if t.ID().String() == "2PiJYCzKtjgeqAuYqTH8h3VQMmogfuAH1v6aoDFtxt5rfFXXPq" { // TODO remove
-			t.vm.ctx.Log.Info("added")
-		}
-	}
-	return t.deps
-}
-*/
-
 // Dependencies returns the set of transactions this transaction builds on
 func (t *Tx) Dependencies() []ids.ID {
 	if len(t.deps) != 0 {
