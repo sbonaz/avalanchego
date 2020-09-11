@@ -102,8 +102,8 @@ func (t *Transitive) Initialize(config Config) error {
 	}
 	config.Manager = t.Manager
 	t.txManager = &txManager{
+		t:         t,
 		pinnedTxs: map[[32]byte]snowstorm.Tx{},
-		vm:        config.VM,
 		txCache:   cache.LRU{Size: txCacheSize},
 	}
 	config.TxManager = t.txManager

@@ -4,18 +4,19 @@ import (
 	"github.com/ava-labs/avalanche-go/cache"
 	"github.com/ava-labs/avalanche-go/ids"
 	"github.com/ava-labs/avalanche-go/snow/consensus/snowstorm"
-	"github.com/ava-labs/avalanche-go/snow/engine/avalanche/vertex"
 )
 
 // txManager implements snowstorm.TxGetter
 type txManager struct {
-	pinnedTxs map[[32]byte]snowstorm.Tx
+	t *Transitive
 
-	vm vertex.DAGVM
+	// Key: Tx ID
+	// Value: The transaction as a *wrappedTx
+	pinnedTxs map[[32]byte]snowstorm.Tx
 
 	// Cache of transactions
 	// Key: Tx ID
-	// Value: The transaction as a *
+	// Value: The transaction as a *wrappedTx
 	txCache cache.LRU
 }
 
@@ -30,18 +31,25 @@ func (tm *txManager) GetTx(id ids.ID) (snowstorm.Tx, error) {
 		return tx.(snowstorm.Tx), nil
 	}
 	// Try storage
-	return tm.vm.GetTx(id)
+	return tm.t.VM.GetTx(id)
 }
 
 // SaveTx persists a tx
 func (tm *txManager) SaveTx(tx snowstorm.Tx) error {
 	tm.txCache.Put(tx.ID(), tx) // Put in cache
-	return tm.vm.SaveTx(tx)     // Persist
+	return tm.t.VM.SaveTx(tx)   // Persist
 }
 
 // PinTx puts a transaction in memory, where it will stay until UnpinTx is called
 func (tm *txManager) PinTx(tx snowstorm.Tx) {
-	tm.pinnedTxs[tx.ID().Key()] = tx
+	if _, ok := tx.(*wrappedTx); ok {
+		tm.pinnedTxs[tx.ID().Key()] = tx
+	} else {
+		tm.pinnedTxs[tx.ID().Key()] = &wrappedTx{
+			t:  tm.t,
+			Tx: tx,
+		}
+	}
 }
 
 // UnpinTx removes a pinned transaction from memory

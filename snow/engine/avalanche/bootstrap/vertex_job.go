@@ -78,6 +78,7 @@ func (v *vertexJob) Execute() error {
 	if err != nil {
 		return err
 	}
+	// TODO do we need to call update here?
 
 	for i := range txs {
 		if tx, err := v.GetTx(txs[i].ID()); err != nil {

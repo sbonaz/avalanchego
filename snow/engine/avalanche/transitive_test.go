@@ -156,6 +156,9 @@ func TestEngineQuery(t *testing.T) {
 	sender.T = t
 	config.Sender = sender
 
+	vm := &vertex.TestVM{}
+	config.VM = vm
+
 	sender.Default(true)
 	sender.CantGetAcceptedFrontier = false
 
@@ -367,7 +370,16 @@ func TestEngineQuery(t *testing.T) {
 		t.Fatal("saved wrong vertex")
 		return errors.New("")
 	}
+	vm.SaveTxF = func(tx snowstorm.Tx) error {
+		switch {
+		case tx.ID().Equals(tx0.ID()): // Should save tx0, which is in vtx1
+			return nil
+		}
+		t.Fatal("tried to save wrong tx")
+		return errors.New("")
+	}
 	te.Put(vdr, 0, vtx1.ID(), vtx1.Bytes())
+
 	manager.ParseVertexF = nil
 
 	if vtx0.Status() != choices.Accepted {
@@ -420,6 +432,9 @@ func TestEngineMultipleQuery(t *testing.T) {
 	sender.Default(true)
 	sender.CantGetAcceptedFrontier = false
 
+	vm := &vertex.TestVM{}
+	config.VM = vm
+
 	manager := &vertex.TestManager{T: t}
 	config.Manager = manager
 
@@ -461,6 +476,15 @@ func TestEngineMultipleQuery(t *testing.T) {
 		ParentsV: vts,
 		HeightV:  1,
 		TxsV:     []snowstorm.Tx{tx0},
+	}
+
+	vm.GetTxF = func(id ids.ID) (snowstorm.Tx, error) {
+		switch {
+		case id.Equals(tx0.ID()):
+			return nil, errUnknownVertex
+		}
+		t.Error("tried to get wrong tx")
+		return nil, errUnknownVertex
 	}
 
 	te := &Transitive{}
@@ -543,6 +567,14 @@ func TestEngineMultipleQuery(t *testing.T) {
 	// Should be dropped because the query was marked as failed
 	te.Chits(vdr1, *queryRequestID, s0)
 
+	vm.SaveTxF = func(tx snowstorm.Tx) error {
+		switch {
+		case tx.ID().Equals(tx0.ID()):
+			return nil
+		}
+		t.Fatal("tried to save wrong tx")
+		return errors.New("")
+	}
 	te.GetFailed(vdr0, *reqID)
 
 	if vtx0.Status() != choices.Accepted {
@@ -3433,6 +3465,7 @@ func TestEngineDoubleChit(t *testing.T) {
 func TestPinProcessingVtxs(t *testing.T) {
 	// Do setup
 	config := DefaultConfig()
+
 	vdr := validators.GenerateRandomValidator(1)
 	vals := validators.NewSet()
 	config.Validators = vals
@@ -3469,7 +3502,7 @@ func TestPinProcessingVtxs(t *testing.T) {
 	utxos := []ids.ID{}
 	// Transactions. Element i consumes utxos[i]
 	txs := []snowstorm.Tx{}
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 4; i++ {
 		utxos = append(utxos, ids.GenerateTestID())
 		tx := &snowstorm.TestTx{TestDecidable: choices.TestDecidable{
 			IDV:     ids.GenerateTestID(),
@@ -3538,6 +3571,15 @@ func TestPinProcessingVtxs(t *testing.T) {
 		t.Fatal("asked to save wrong vertex")
 		return errUnknownVertex
 	}
+	vm.SaveTxF = func(tx snowstorm.Tx) error {
+		switch {
+		case tx.ID().Equals(txs[0].ID()): // vtx contains txs[0]
+			return nil
+		}
+		t.Fatal("saved wrong tx")
+		return errors.New("")
+	}
+
 	// Record chits
 	votes := ids.Set{}
 	votes.Add(vtx.ID())
@@ -3647,6 +3689,14 @@ func TestPinProcessingVtxs(t *testing.T) {
 	if !ok {
 		t.Fatal("should have sent push query for vtx3")
 	}
+	vm.SaveTxF = func(tx snowstorm.Tx) error {
+		switch {
+		case tx.ID().Equals(txs[2].ID()):
+			return nil
+		}
+		t.Fatal("saved wrong tx")
+		return errors.New("")
+	}
 	te.Chits(vdr.ID(), reqID, votes)
 	reqID, ok = pushQueryIDs[vtx2.ID().Key()]
 	if !ok {
@@ -3663,6 +3713,15 @@ func TestPinProcessingVtxs(t *testing.T) {
 		t.Fatal("asked to save wrong vertex")
 		return errUnknownVertex
 	}
+	vm.SaveTxF = func(tx snowstorm.Tx) error {
+		switch {
+		case tx.ID().Equals(txs[1].ID()):
+			return nil
+		}
+		t.Fatal("saved wrong tx")
+		return errors.New("")
+	}
+
 	te.Chits(vdr.ID(), reqID, votes)
 	// Should have accepted vtx2 and vtx3, rejected vtx4
 	if vtx2.Status() != choices.Accepted {
