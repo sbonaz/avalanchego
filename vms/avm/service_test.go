@@ -6,11 +6,11 @@ package avm
 import (
 	"testing"
 
-	"github.com/ava-labs/avalanche-go/api"
-	"github.com/ava-labs/avalanche-go/api/keystore"
-	"github.com/ava-labs/avalanche-go/chains/atomic"
-	"github.com/ava-labs/avalanche-go/ids"
-	"github.com/ava-labs/avalanche-go/utils/formatting"
+	"github.com/ava-labs/avalanchego/api"
+	"github.com/ava-labs/avalanchego/api/keystore"
+	"github.com/ava-labs/avalanchego/chains/atomic"
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/formatting"
 )
 
 func setup(t *testing.T) ([]byte, *VM, *Service, *atomic.Memory) {

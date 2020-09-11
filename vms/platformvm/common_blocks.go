@@ -6,12 +6,12 @@ package platformvm
 import (
 	"errors"
 
-	"github.com/ava-labs/avalanche-go/database"
-	"github.com/ava-labs/avalanche-go/database/versiondb"
-	"github.com/ava-labs/avalanche-go/ids"
-	"github.com/ava-labs/avalanche-go/snow/choices"
-	"github.com/ava-labs/avalanche-go/snow/consensus/snowman"
-	"github.com/ava-labs/avalanche-go/vms/components/core"
+	"github.com/ava-labs/avalanchego/database"
+	"github.com/ava-labs/avalanchego/database/versiondb"
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/snow/choices"
+	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
+	"github.com/ava-labs/avalanchego/vms/components/core"
 )
 
 // When one stakes, one must specify the time one will start to validate and

@@ -1,13 +1,13 @@
-module github.com/ava-labs/gecko
+module github.com/ava-labs/avalanchego
 
 go 1.14
 
 require (
 	github.com/AppsFlyer/go-sundheit v0.2.0
+	github.com/Microsoft/go-winio v0.4.14
 	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/aristanetworks/goarista v0.0.0-20200812190859-4cb0e71f3c0e // indirect
-	github.com/ava-labs/coreth v0.2.14 // indirect
-	github.com/ava-labs/go-ethereum v1.9.3
+	github.com/ava-labs/coreth v0.2.15-rc.2
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/decred/dcrd/dcrec/secp256k1/v3 v3.0.0-20200627015759-01fd2de07837
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -32,7 +32,6 @@ require (
 	github.com/steakknife/hamming v0.0.0-20180906055917-c99c65617cd3 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/syndtr/goleveldb v1.0.0
-	go.nanomsg.org/mangos/v3 v3.0.1
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2
 	google.golang.org/grpc v1.29.1

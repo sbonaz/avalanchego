@@ -1,6 +1,6 @@
 package avalanche
 
-import "github.com/ava-labs/avalanche-go/snow/consensus/snowstorm"
+import "github.com/ava-labs/avalanchego/snow/consensus/snowstorm"
 
 // wrappedTx wraps a snowstorm.Tx.
 // This is what gets passed into the consensus instance so that

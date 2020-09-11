@@ -8,19 +8,19 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/ava-labs/avalanche-go/snow/choices"
+	"github.com/ava-labs/avalanchego/snow/choices"
 
-	"github.com/ava-labs/avalanche-go/cache"
-	"github.com/ava-labs/avalanche-go/database"
-	"github.com/ava-labs/avalanche-go/ids"
-	"github.com/ava-labs/avalanche-go/snow"
-	"github.com/ava-labs/avalanche-go/snow/consensus/avalanche"
-	"github.com/ava-labs/avalanche-go/snow/consensus/snowstorm"
-	"github.com/ava-labs/avalanche-go/utils"
-	"github.com/ava-labs/avalanche-go/utils/codec"
-	"github.com/ava-labs/avalanche-go/utils/hashing"
-	"github.com/ava-labs/avalanche-go/utils/math"
-	"github.com/ava-labs/avalanche-go/utils/wrappers"
+	"github.com/ava-labs/avalanchego/cache"
+	"github.com/ava-labs/avalanchego/database"
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/snow"
+	"github.com/ava-labs/avalanchego/snow/consensus/avalanche"
+	"github.com/ava-labs/avalanchego/snow/consensus/snowstorm"
+	"github.com/ava-labs/avalanchego/utils"
+	"github.com/ava-labs/avalanchego/utils/codec"
+	"github.com/ava-labs/avalanchego/utils/hashing"
+	"github.com/ava-labs/avalanchego/utils/math"
+	"github.com/ava-labs/avalanchego/utils/wrappers"
 )
 
 var (

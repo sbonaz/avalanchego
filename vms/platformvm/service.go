@@ -10,18 +10,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ava-labs/avalanche-go/api"
-	"github.com/ava-labs/avalanche-go/database/prefixdb"
-	"github.com/ava-labs/avalanche-go/ids"
-	"github.com/ava-labs/avalanche-go/utils/constants"
-	"github.com/ava-labs/avalanche-go/utils/crypto"
-	"github.com/ava-labs/avalanche-go/utils/formatting"
-	"github.com/ava-labs/avalanche-go/utils/json"
-	"github.com/ava-labs/avalanche-go/utils/math"
-	"github.com/ava-labs/avalanche-go/utils/wrappers"
-	"github.com/ava-labs/avalanche-go/vms/avm"
-	"github.com/ava-labs/avalanche-go/vms/components/avax"
-	"github.com/ava-labs/avalanche-go/vms/secp256k1fx"
+	"github.com/ava-labs/avalanchego/api"
+	"github.com/ava-labs/avalanchego/database/prefixdb"
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/constants"
+	"github.com/ava-labs/avalanchego/utils/crypto"
+	"github.com/ava-labs/avalanchego/utils/formatting"
+	"github.com/ava-labs/avalanchego/utils/json"
+	"github.com/ava-labs/avalanchego/utils/math"
+	"github.com/ava-labs/avalanchego/utils/wrappers"
+	"github.com/ava-labs/avalanchego/vms/avm"
+	"github.com/ava-labs/avalanchego/vms/components/avax"
+	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
 const (
@@ -620,9 +620,9 @@ func (service *Service) GetCurrentValidators(_ *http.Request, args *GetCurrentVa
 			}
 			uptime := json.Float32(rawUptime)
 
-			service.vm.connLock.Lock()
+			service.vm.uptimeLock.Lock()
 			_, connected := service.vm.connections[nodeID.Key()]
-			service.vm.connLock.Unlock()
+			service.vm.uptimeLock.Unlock()
 
 			var rewardOwner *APIOwner
 			owner, ok := staker.RewardsOwner.(*secp256k1fx.OutputOwners)
@@ -723,9 +723,9 @@ func (service *Service) GetPendingValidators(_ *http.Request, args *GetPendingVa
 			weight := json.Uint64(staker.Validator.Weight())
 			delegationFee := json.Float32(100 * float32(staker.Shares) / float32(PercentDenominator))
 
-			service.vm.connLock.Lock()
+			service.vm.uptimeLock.Lock()
 			_, connected := service.vm.connections[nodeID.Key()]
-			service.vm.connLock.Unlock()
+			service.vm.uptimeLock.Unlock()
 			reply.Validators = append(reply.Validators, APIPrimaryValidator{
 				APIStaker: APIStaker{
 					NodeID:      staker.Validator.ID().PrefixedString(constants.NodeIDPrefix),
