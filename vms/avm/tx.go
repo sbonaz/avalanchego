@@ -149,6 +149,7 @@ func (t *Tx) Status() choices.Status {
 	if err != nil {
 		return choices.Unknown
 	}
+	t.status = status
 	return status
 }
 
@@ -328,8 +329,8 @@ func (t *Tx) SyntacticVerify() error {
 
 	t.verifiedTx = true
 	if err := t.UnsignedTx.SyntacticVerify(t.vm.ctx, t.vm.codec, t.vm.ctx.AVAXAssetID, t.vm.txFee, len(t.vm.fxs)); err != nil {
-		t.validity = errInitialStatesNotSortedUnique
-		return errInitialStatesNotSortedUnique
+		t.validity = err
+		return err
 	}
 
 	for _, cred := range t.Creds {

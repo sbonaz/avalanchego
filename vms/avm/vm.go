@@ -304,9 +304,7 @@ func (vm *VM) GetTx(txID ids.ID) (snowstorm.Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Verify must be called in the case the that tx was flushed from the unique
-	// cache.
-	return tx, tx.verifyWithoutCacheWrites()
+	return tx, nil
 }
 
 /*
