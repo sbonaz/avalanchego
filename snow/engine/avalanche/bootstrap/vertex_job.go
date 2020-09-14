@@ -82,7 +82,7 @@ func (v *vertexJob) Execute() error {
 
 	for i := range txs {
 		if tx, err := v.GetTx(txs[i].ID()); err != nil {
-			return fmt.Errorf("couldn't find tx %s", tx.ID())
+			return fmt.Errorf("couldn't find tx %s", txs[i].ID())
 		} else if tx.Status() != choices.Accepted {
 			return fmt.Errorf("attempting to execute vertex %s with non-accepted transaction %s (has status %s)", v.vtx.ID(), tx.ID(), tx.Status())
 		}
