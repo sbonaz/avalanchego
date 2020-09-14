@@ -234,6 +234,7 @@ func (t *Transitive) GetAncestors(vdr ids.ShortID, requestID uint32, vtxID ids.I
 		}
 	}
 
+	t.metrics.getAncestorsVtxs.Observe(float64(len(ancestorsBytes)))
 	t.Sender.MultiPut(vdr, requestID, ancestorsBytes)
 	return nil
 }

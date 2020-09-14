@@ -11,6 +11,7 @@ import (
 
 type metrics struct {
 	numRequests, numBlocked, numProcessing prometheus.Gauge
+	getAncestorsBlks                       prometheus.Histogram
 }
 
 // Initialize the metrics
@@ -30,12 +31,29 @@ func (m *metrics) Initialize(namespace string, registerer prometheus.Registerer)
 		Name:      "processing",
 		Help:      "Number of blocks that are currently processing in the engine",
 	})
+	m.getAncestorsBlks = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Name:      "get_ancestors_blks",
+		Help:      "The number of blocks fetched in a call to GetAncestors",
+		Buckets: []float64{
+			0,
+			1,
+			5,
+			10,
+			100,
+			500,
+			1000,
+			1500,
+			2000,
+		},
+	})
 
 	errs := wrappers.Errs{}
 	errs.Add(
 		registerer.Register(m.numRequests),
 		registerer.Register(m.numBlocked),
 		registerer.Register(m.numProcessing),
+		registerer.Register(m.getAncestorsBlks),
 	)
 	return errs.Err
 }
