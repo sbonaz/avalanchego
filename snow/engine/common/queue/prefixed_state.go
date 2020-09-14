@@ -31,11 +31,11 @@ type prefixedState struct {
 
 	// Key: Index
 	// Value: Job at that index
-	stackIndexCache cache.LRU
+	stackIndexCache *cache.LRU
 
 	// Key: Job ID
 	// Value: Job
-	jobCache cache.LRU
+	jobCache *cache.LRU
 }
 
 func (ps *prefixedState) SetStackSize(db database.Database, size uint32) error {
