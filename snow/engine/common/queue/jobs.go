@@ -6,6 +6,7 @@ package queue
 import (
 	"errors"
 
+	"github.com/ava-labs/avalanchego/cache"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/database/versiondb"
 	"github.com/ava-labs/avalanchego/ids"
@@ -16,6 +17,8 @@ var (
 	errEmpty     = errors.New("no available containers")
 	errDuplicate = errors.New("duplicated container")
 )
+
+const cacheSize = 10000
 
 // Jobs ...
 type Jobs struct {
@@ -34,6 +37,8 @@ func New(db database.Database) (*Jobs, error) {
 		db:     versiondb.New(db),
 	}
 	jobs.state.jobs = jobs
+	jobs.state.stackIndexCache = &cache.LRU{Size: cacheSize}
+	jobs.state.jobCache = &cache.LRU{Size: cacheSize}
 
 	if _, err := jobs.HasNext(); err == nil {
 		return jobs, nil
