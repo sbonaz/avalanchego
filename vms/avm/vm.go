@@ -612,12 +612,6 @@ func (vm *VM) getUTXO(utxoID *avax.UTXOID) (*avax.UTXO, error) {
 		return nil, fmt.Errorf("couldn't get input transaction %s: %w", inputTx, err)
 	}
 
-	if err := parent.verifyWithoutCacheWrites(); err != nil {
-		return nil, errMissingUTXO
-	} else if status := parent.Status(); status.Decided() {
-		return nil, errMissingUTXO
-	}
-
 	parentUTXOs := parent.UTXOs()
 	if uint32(len(parentUTXOs)) <= inputIndex || int(inputIndex) < 0 {
 		return nil, errInvalidUTXO
