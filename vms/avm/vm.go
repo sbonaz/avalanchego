@@ -62,6 +62,10 @@ type VM struct {
 	// Contains information of where this VM is executing
 	ctx *snow.Context
 
+	// Key: ID
+	// Value: A processing transactions
+	processingTxs map[[32]byte]*Tx
+
 	// Used to check local time
 	clock timer.Clock
 
@@ -121,6 +125,7 @@ func (vm *VM) Initialize(
 	vm.toEngine = toEngine
 	vm.baseDB = db
 	vm.db = versiondb.New(db)
+	vm.processingTxs = map[[32]byte]*Tx{}
 	vm.typeToFxIndex = map[reflect.Type]int{}
 	vm.Aliaser.Initialize()
 
@@ -298,7 +303,15 @@ func (vm *VM) ParseTx(b []byte) (snowstorm.Tx, error) {
 
 // GetTx implements the avalanche.DAGVM interface
 func (vm *VM) GetTx(txID ids.ID) (snowstorm.Tx, error) {
+	return vm.getTx(txID)
+}
+
+func (vm *VM) getTx(txID ids.ID) (*Tx, error) {
 	vm.metrics.numGetTxCalls.Inc()
+
+	if tx, ok := vm.processingTxs[txID.Key()]; ok {
+		return tx, nil
+	}
 
 	tx, err := vm.state.Tx(txID)
 	if err != nil {
@@ -605,7 +618,7 @@ func (vm *VM) getUTXO(utxoID *avax.UTXOID) (*avax.UTXO, error) {
 	}
 
 	inputTx, inputIndex := utxoID.InputSource()
-	parent, err := vm.state.Tx(inputTx)
+	parent, err := vm.getTx(inputTx)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't get input transaction %s: %w", inputTx, err)
 	}

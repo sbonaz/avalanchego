@@ -174,7 +174,6 @@ func (b *Bootstrapper) process(vtxs ...avalanche.Vertex) error {
 	for toProcess.Len() > 0 { // While there are unprocessed vertices
 		vtx := toProcess.Pop() // Get an unknown vertex or one furthest down the DAG
 		vtxID := vtx.ID()
-
 		switch vtx.Status() {
 		case choices.Unknown:
 			b.needToFetch.Add(vtxID) // We don't have this vertex locally. Mark that we need to fetch it.
@@ -189,6 +188,7 @@ func (b *Bootstrapper) process(vtxs ...avalanche.Vertex) error {
 				numAccepted: b.numAcceptedVts,
 				numDropped:  b.numDroppedVts,
 				vtx:         vtx,
+				TxManager:   b.TxManager,
 			}); err == nil {
 				b.numFetchedVts.Inc()
 				b.NumFetched++ // Progress tracker

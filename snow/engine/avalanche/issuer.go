@@ -65,6 +65,16 @@ func (i *issuer) Update() {
 		return
 	}
 	txs = i.t.update(txs...)
+	txs, err = snowstorm.TopologicalSort(txs) // topologically sort txs so they're verified in right order
+	if err != nil {
+		i.t.Ctx.Log.Debug("Abandoning vertex %s because txs couldn't be topologically sorted", vtxID)
+		delete(i.t.processingVtxs, vtxID.Key()) // Unpin from memory
+		i.t.droppedCache.Put(vtxID, i.vtx)
+		// i.t.numBlocked.Set(float64(t.pending.Len())) TODO add metric // Tracks performance statistics
+		// i.t.numProcessing.Set(float64(len(t.processingVtxs))) TODO add metric
+		i.t.vtxBlocked.Abandon(vtxID)
+		return
+	}
 
 	validTxs := make([]snowstorm.Tx, 0, len(txs))
 	for _, tx := range txs {
@@ -79,7 +89,7 @@ func (i *issuer) Update() {
 	// Some of the transactions weren't valid. Abandon this vertex.
 	// Take the valid transactions and issue a new vertex with them.
 	if len(validTxs) != len(txs) {
-		i.t.Ctx.Log.Debug("Abandoning %s due to failed transaction verification", vtxID)
+		i.t.Ctx.Log.Debug("Abandoning vertex %s because at least 1 transaction failed verification", vtxID)
 		if err := i.t.batch(validTxs, false /*=force*/, false /*=empty*/); err != nil {
 			i.t.errs.Add(err)
 		}

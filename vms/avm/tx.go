@@ -203,6 +203,7 @@ func (t *Tx) Accept() error {
 	t.vm.ctx.Log.Verbo("Accepted Tx: %s", txID)
 	t.vm.pubsub.Publish("accepted", txID)
 
+	delete(t.vm.processingTxs, txID.Key())
 	t.deps = nil // Needed to prevent a memory leak
 
 	return nil
@@ -267,8 +268,11 @@ func (t *Tx) Verify() error {
 		return err
 	}
 
+	txID := t.ID()
+	t.vm.processingTxs[txID.Key()] = t
+
 	t.verifiedState = true
-	t.vm.pubsub.Publish("verified", t.ID())
+	t.vm.pubsub.Publish("verified", txID)
 	return nil
 }
 
