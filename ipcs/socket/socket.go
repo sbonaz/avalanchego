@@ -65,12 +65,26 @@ func (s *Socket) Listen() error {
 		return err
 	}
 
+	stopAcceptingConns := make(chan bool)
+	go func() {
+		// Wait until we get the signal to quit
+		<-s.quitCh
+		// When we do, signal that we should stop accepting connections.
+		// Then close the listener, which causes s.accept(s,l) to break.
+		// The upshot is that we end the below goroutine.
+		stopAcceptingConns <- true
+		if err := l.Close(); err != nil {
+			s.log.Error("error closing socket listener: %s", err)
+		}
+		// Signal that we're done closing accepting connection
+		close(s.doneCh)
+	}()
+
 	// Start a loop that accepts new connections until told to quit
 	go func() {
 		for {
-			select {
-			case <-s.quitCh:
-				close(s.doneCh)
+			switch {
+			case <-stopAcceptingConns:
 				return
 			default:
 				s.accept(s, l)

@@ -4,6 +4,7 @@
 package ipcs
 
 import (
+	"fmt"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/ipcs/socket"
 	"github.com/ava-labs/avalanchego/snow/triggers"
@@ -97,7 +98,9 @@ func newEventIPCSocket(ctx context, chainID ids.ID, name string, events *trigger
 			url:    url,
 			socket: socket.NewSocket(url, ctx.log),
 			unregisterFn: func() error {
-				return events.DeregisterChain(chainID, ipcName)
+				err := events.DeregisterChain(chainID, ipcName)
+				fmt.Println("done deregistering")
+				return err
 			},
 		}
 	)
@@ -133,6 +136,7 @@ func (eis *eventSocket) stop() error {
 	eis.log.Info("closing Chain IPC")
 	errs := wrappers.Errs{}
 	errs.Add(eis.unregisterFn(), eis.socket.Close())
+	fmt.Println("here")
 	return errs.Err
 }
 
