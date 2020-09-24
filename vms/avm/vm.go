@@ -666,7 +666,9 @@ func (vm *VM) getUTXO(utxoID *avax.UTXOID) (*avax.UTXO, error) {
 	if err == nil {
 		return utxo, nil
 	}
+	return nil, err
 
+	/* TODO what to do here?
 	inputTx, inputIndex := utxoID.InputSource()
 	parent, err := vm.getTx(inputTx)
 	if err != nil {
@@ -678,6 +680,7 @@ func (vm *VM) getUTXO(utxoID *avax.UTXOID) (*avax.UTXO, error) {
 		return nil, errInvalidUTXO
 	}
 	return parentUTXOs[int(inputIndex)], nil
+	*/
 }
 
 func (vm *VM) getFx(val interface{}) (int, error) {

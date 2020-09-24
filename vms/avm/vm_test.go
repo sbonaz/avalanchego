@@ -1141,10 +1141,10 @@ func TestTxVerifyAfterIssueTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := parsedSecondTx.Verify(); err != nil {
+	if _, err := vm.IssueTx(firstTx.Bytes()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := vm.IssueTx(firstTx.Bytes()); err != nil {
+	if err := parsedSecondTx.Verify(); err != nil {
 		t.Fatal(err)
 	}
 	if err := parsedSecondTx.Accept(); err != nil {
