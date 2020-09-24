@@ -49,10 +49,10 @@ func (s *state) Tx(id ids.ID) (*Tx, error) {
 	tx := &Tx{
 		vm: s.VM,
 	}
-	if err := s.State.Codec.Unmarshal(bytes, tx); err != nil {
+	if err := s.GenesisCodec.Unmarshal(bytes, tx); err != nil {
 		return nil, err
 	}
-	unsignedBytes, err := s.State.Codec.Marshal(&tx.UnsignedTx)
+	unsignedBytes, err := s.GenesisCodec.Marshal(&tx.UnsignedTx)
 	if err != nil {
 		return nil, err
 	}

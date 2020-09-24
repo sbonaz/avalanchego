@@ -1923,11 +1923,16 @@ func TestPinnedMemory(t *testing.T) {
 	vm.LastAcceptedF = func() ids.ID { return gBlk.ID() }
 	sender.CantGetAcceptedFrontier = false
 
+	vm.CantBootstrapping = false
+	vm.CantBootstrapped = false
+
 	te := &Transitive{}
-	te.Initialize(config)
 	te.Initialize(config)
 	te.finishBootstrapping()
 	te.Ctx.Bootstrapped()
+
+	vm.CantBootstrapping = true
+	vm.CantBootstrapped = true
 
 	// First, test the simple case where there's one processing block with no conflicts and it's accepted
 	// Put a block

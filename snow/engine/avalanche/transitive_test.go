@@ -3163,7 +3163,9 @@ func TestEngineAggressivePolling(t *testing.T) {
 	vm := &vertex.TestVM{}
 	vm.T = t
 	config.VM = vm
-
+	vm.GetTxF = func(id ids.ID) (snowstorm.Tx, error) {
+		return nil, errUnknownVertex
+	}
 	vm.Default(true)
 
 	gVtx := &avalanche.TestVertex{
@@ -3572,8 +3574,6 @@ func TestPinProcessingVtxs(t *testing.T) {
 
 	te := &Transitive{}
 	if err := te.Initialize(config); err != nil {
-		t.Fatal(err)
-	} else if err := te.finishBootstrapping(); err != nil {
 		t.Fatal(err)
 	}
 	te.Ctx.Bootstrapped()

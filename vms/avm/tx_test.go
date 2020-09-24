@@ -15,17 +15,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
 )
 
-func TestTxNil(t *testing.T) {
-	tx := (*Tx)(nil)
-	if err := tx.SyntacticVerify(); err == nil {
-		t.Fatalf("Should have errored due to nil tx")
-	} else if err := tx.SemanticVerify(); err == nil {
-		t.Fatalf("Should have errored due to nil tx")
-	} else if err := tx.Verify(); err == nil {
-		t.Fatalf("Should have errored due to nil tx")
-	}
-}
-
 func setupCodec() codec.Codec {
 	c := codec.NewDefault()
 	c.RegisterType(&BaseTx{})
@@ -41,9 +30,22 @@ func setupCodec() codec.Codec {
 	return c
 }
 
+func TestTxNil(t *testing.T) {
+	_, _, vm, _ := GenesisVM(t)
+
+	tx := (*Tx)(nil)
+	if err := tx.SyntacticVerify(vm.ctx, vm.codec, ids.Empty, 0, 0, 1); err == nil {
+		t.Fatalf("Should have errored due to nil tx")
+	} else if err := tx.Verify(); err == nil {
+		t.Fatalf("Should have errored due to nil tx")
+	}
+}
+
 func TestTxEmpty(t *testing.T) {
+	_, _, vm, _ := GenesisVM(t)
+
 	tx := &Tx{}
-	if err := tx.SyntacticVerify(); err == nil {
+	if err := tx.SyntacticVerify(vm.ctx, vm.codec, ids.Empty, 0, 0, 1); err == nil {
 		t.Fatalf("Should have errored due to nil tx")
 	}
 }
@@ -63,7 +65,7 @@ func TestTxInvalidCredential(t *testing.T) {
 					TxID:        ids.Empty,
 					OutputIndex: 0,
 				},
-				Asset: avax.Asset{ID: asset},
+				Asset: avax.Asset{ID: assetID},
 				In: &secp256k1fx.TransferInput{
 					Amt: 20 * units.KiloAvax,
 					Input: secp256k1fx.Input{
@@ -80,7 +82,7 @@ func TestTxInvalidCredential(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := tx.SyntacticVerify(); err == nil {
+	if err := tx.SyntacticVerify(vm.ctx, vm.codec, ids.Empty, 0, 0, 1); err == nil {
 		t.Fatalf("Tx should have failed due to an invalid credential")
 	}
 }
@@ -101,7 +103,7 @@ func TestTxInvalidUnsignedTx(t *testing.T) {
 						TxID:        ids.Empty,
 						OutputIndex: 0,
 					},
-					Asset: avax.Asset{ID: asset},
+					Asset: avax.Asset{ID: assetID},
 					In: &secp256k1fx.TransferInput{
 						Amt: 20 * units.KiloAvax,
 						Input: secp256k1fx.Input{
@@ -116,7 +118,7 @@ func TestTxInvalidUnsignedTx(t *testing.T) {
 						TxID:        ids.Empty,
 						OutputIndex: 0,
 					},
-					Asset: avax.Asset{ID: asset},
+					Asset: avax.Asset{ID: assetID},
 					In: &secp256k1fx.TransferInput{
 						Amt: 20 * units.KiloAvax,
 						Input: secp256k1fx.Input{
@@ -136,7 +138,8 @@ func TestTxInvalidUnsignedTx(t *testing.T) {
 	if err := tx.SignSECP256K1Fx(c, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := tx.SyntacticVerify(); err == nil {
+
+	if err := tx.SyntacticVerify(vm.ctx, vm.codec, ids.Empty, 0, 0, 1); err == nil {
 		t.Fatalf("Tx should have failed due to an invalid unsigned tx")
 	}
 }
@@ -154,7 +157,7 @@ func TestTxInvalidNumberOfCredentials(t *testing.T) {
 			Ins: []*avax.TransferableInput{
 				{
 					UTXOID: avax.UTXOID{TxID: ids.Empty, OutputIndex: 0},
-					Asset:  avax.Asset{ID: asset},
+					Asset:  avax.Asset{ID: assetID},
 					In: &secp256k1fx.TransferInput{
 						Amt: 20 * units.KiloAvax,
 						Input: secp256k1fx.Input{
@@ -166,7 +169,7 @@ func TestTxInvalidNumberOfCredentials(t *testing.T) {
 				},
 				{
 					UTXOID: avax.UTXOID{TxID: ids.Empty, OutputIndex: 1},
-					Asset:  avax.Asset{ID: asset},
+					Asset:  avax.Asset{ID: assetID},
 					In: &secp256k1fx.TransferInput{
 						Amt: 20 * units.KiloAvax,
 						Input: secp256k1fx.Input{
@@ -183,7 +186,8 @@ func TestTxInvalidNumberOfCredentials(t *testing.T) {
 	if err := tx.SignSECP256K1Fx(c, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := tx.SyntacticVerify(); err == nil {
+
+	if err := tx.SyntacticVerify(vm.ctx, vm.codec, ids.Empty, 0, 0, 1); err == nil {
 		t.Fatalf("Tx should have failed due to an invalid unsigned tx")
 	}
 }

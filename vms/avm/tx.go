@@ -4,7 +4,6 @@
 package avm
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/ava-labs/avalanchego/database"
@@ -18,15 +17,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms/components/verify"
 	"github.com/ava-labs/avalanchego/vms/nftfx"
 	"github.com/ava-labs/avalanchego/vms/secp256k1fx"
-)
-
-var (
-	errWrongNumberOfCredentials = errors.New("should have the same number of credentials as inputs")
-	errAssetIDMismatch          = errors.New("asset IDs in the input don't match the utxo")
-	errWrongAssetID             = errors.New("asset ID must be AVAX in the atomic tx")
-	errMissingUTXO              = errors.New("missing utxo")
-	errUnknownTx                = errors.New("transaction is unknown")
-	errRejectedTx               = errors.New("transaction is rejected")
 )
 
 // UnsignedTx ...
@@ -43,7 +33,14 @@ type UnsignedTx interface {
 	InputUTXOs() []*avax.UTXOID
 	UTXOs() []*avax.UTXO
 
-	SyntacticVerify(ctx *snow.Context, c codec.Codec, txFeeAssetID ids.ID, txFee uint64, numFxs int) error
+	SyntacticVerify(
+		ctx *snow.Context,
+		c codec.Codec,
+		txFeeAssetID ids.ID,
+		txFee uint64,
+		creationTxFee uint64,
+		numFxs int,
+	) error
 	SemanticVerify(vm *VM, tx UnsignedTx, creds []verify.Verifiable) error
 	ExecuteWithSideEffects(vm *VM, batch database.Batch) error
 }
@@ -70,6 +67,70 @@ type Tx struct {
 // Credentials describes the authorization that allows the Inputs to consume the
 // specified UTXOs. The returned array should not be modified.
 func (t *Tx) Credentials() []verify.Verifiable { return t.Creds }
+
+// SyntacticVerify verifies that this transaction is well-formed.
+func (t *Tx) SyntacticVerify(
+	ctx *snow.Context,
+	c codec.Codec,
+	txFeeAssetID ids.ID,
+	txFee uint64,
+	creationTxFee uint64,
+	numFxs int,
+) error {
+	switch {
+	case t == nil || t.UnsignedTx == nil:
+		return errNilTx
+	case t.verifiedTx:
+		return t.validity
+	}
+
+	t.verifiedTx = true
+	if err := t.UnsignedTx.SyntacticVerify(ctx, c, txFeeAssetID, txFee, creationTxFee, numFxs); err != nil {
+		return err
+	}
+
+	for _, cred := range t.Creds {
+		if err := cred.Verify(); err != nil {
+			err := fmt.Errorf("credential failed verification: %w", err)
+			t.validity = err
+			return err
+		}
+	}
+
+	if numCreds := t.UnsignedTx.NumCredentials(); numCreds != len(t.Creds) {
+		return fmt.Errorf("tx has %d credentials but %d inputs. Should be same",
+			len(t.Creds),
+			numCreds,
+		)
+	}
+	return nil
+}
+
+/*
+// SemanticVerify the validity of this transaction
+func (t *Tx) SemanticVerify() error {
+	if t == nil {
+		return errNilTx
+	}
+	// SyntacticVerify sets the error on validity and is checked in the next
+	// statement
+	_ = t.SyntacticVerify()
+
+	if t.validity != nil || t.verifiedState {
+		return t.validity
+	}
+	return t.UnsignedTx.SemanticVerify(t.vm, t.UnsignedTx, t.Creds)
+}
+*/
+
+// SemanticVerify verifies that this transaction is well-formed.
+func (t *Tx) SemanticVerify(vm *VM, tx UnsignedTx) error {
+	if t == nil {
+		return errNilTx
+	}
+
+	return t.UnsignedTx.SemanticVerify(vm, tx, t.Creds)
+}
 
 // SignSECP256K1Fx ...
 func (t *Tx) SignSECP256K1Fx(c codec.Codec, signers [][]*crypto.PrivateKeySECP256K1R) error {
@@ -278,17 +339,17 @@ func (t *Tx) Verify() error {
 
 func (t *Tx) verifyWithoutCacheWrites() error {
 	if t == nil {
-		return errUnknownTx
+		return fmt.Errorf("transaction is nil")
 	}
 	switch status := t.Status(); status {
 	case choices.Unknown:
-		return errUnknownTx
+		return fmt.Errorf("transaction %s is unknown", t.ID())
 	case choices.Accepted:
 		return nil
 	case choices.Rejected:
-		return errRejectedTx
+		return fmt.Errorf("transaction %s is rejected", t.ID())
 	default:
-		return t.SemanticVerify()
+		return t.SemanticVerify(t.vm, t.UnsignedTx)
 	}
 }
 
@@ -320,50 +381,4 @@ func (t *Tx) UTXOs() []*avax.UTXO {
 	}
 	t.utxos = t.UnsignedTx.UTXOs()
 	return t.utxos
-}
-
-// SyntacticVerify verifies that this transaction is well formed
-func (t *Tx) SyntacticVerify() error {
-	switch {
-	case t == nil || t.UnsignedTx == nil:
-		return errNilTx
-	case t.verifiedTx:
-		return t.validity
-	}
-
-	t.verifiedTx = true
-	if err := t.UnsignedTx.SyntacticVerify(t.vm.ctx, t.vm.codec, t.vm.ctx.AVAXAssetID, t.vm.txFee, len(t.vm.fxs)); err != nil {
-		t.validity = err
-		return err
-	}
-
-	for _, cred := range t.Creds {
-		if err := cred.Verify(); err != nil {
-			err := fmt.Errorf("credential failed verification: %w", err)
-			t.validity = err
-			return err
-		}
-	}
-
-	if numCreds := t.UnsignedTx.NumCredentials(); numCreds != len(t.Creds) {
-		t.validity = errWrongNumberOfCredentials
-		return errWrongNumberOfCredentials
-	}
-
-	return nil
-}
-
-// SemanticVerify the validity of this transaction
-func (t *Tx) SemanticVerify() error {
-	if t == nil {
-		return errNilTx
-	}
-	// SyntacticVerify sets the error on validity and is checked in the next
-	// statement
-	_ = t.SyntacticVerify()
-
-	if t.validity != nil || t.verifiedState {
-		return t.validity
-	}
-	return t.UnsignedTx.SemanticVerify(t.vm, t.UnsignedTx, t.Creds)
 }
