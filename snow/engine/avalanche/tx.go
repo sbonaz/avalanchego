@@ -16,7 +16,7 @@ func (tx *wrappedTx) Accept() error {
 	if err := tx.Tx.Accept(); err != nil {
 		return err
 	}
-	tx.t.txManager.UnpinTx(tx.ID())
+	tx.t.UnpinTx(tx.ID())
 	return tx.t.SaveTx(tx.Tx)
 }
 

@@ -398,7 +398,6 @@ func (b *Bootstrapper) executeAll(jobs *queue.Jobs, events *triggers.EventDispat
 	numExecuted := 0
 
 	for job, err := jobs.Pop(); err == nil; job, err = jobs.Pop() {
-		b.Ctx.Log.Debug("Executing: %s", job.ID())
 		if err := jobs.Execute(job); err != nil {
 			b.Ctx.Log.Error("Error executing %s: %s", job.ID(), err)
 			return err

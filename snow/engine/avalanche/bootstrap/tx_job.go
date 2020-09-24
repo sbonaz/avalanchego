@@ -84,7 +84,9 @@ func (t *txJob) Execute() error {
 				t.tx.ID(), err)
 			return fmt.Errorf("failed to accept transaction in bootstrapping: %w", err)
 		}
-		// We saved this tx when we got it so we don't need to save it now
+		if err := t.TxManager.SaveTx(t.tx); err != nil {
+			return fmt.Errorf("couldn't save tx %s: %w", t.tx.ID(), err)
+		}
 	}
 	return nil
 }
