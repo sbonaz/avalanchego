@@ -41,7 +41,7 @@ type Serializer struct {
 }
 
 // Initialize implements the avalanche.State interface
-func (s *Serializer) Initialize(ctx *snow.Context, vm vertex.DAGVM, db database.Database) {
+func (s *Serializer) Initialize(ctx *snow.Context, vm vertex.DAGVM, db database.Database) error {
 	s.ctx = ctx
 	s.vm = vm
 
@@ -55,7 +55,12 @@ func (s *Serializer) Initialize(ctx *snow.Context, vm vertex.DAGVM, db database.
 	s.state = newPrefixedState(rawState, idCacheSize)
 	s.db = vdb
 
-	s.edge.Add(s.state.Edge()...)
+	edge, err := s.state.Edge()
+	if err != nil {
+		return err
+	}
+	s.edge.Add(edge...)
+	return nil
 }
 
 // ParseVertex implements the avalanche.State interface

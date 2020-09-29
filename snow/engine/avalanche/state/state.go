@@ -4,6 +4,8 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/ava-labs/avalanchego/cache"
 	"github.com/ava-labs/avalanchego/database"
 	"github.com/ava-labs/avalanchego/ids"
@@ -22,19 +24,26 @@ type state struct {
 
 func (s *state) Vertex(id ids.ID) *innerVertex {
 	if vtxIntf, found := s.dbCache.Get(id); found {
-		vtx, _ := vtxIntf.(*innerVertex)
-		return vtx
+		vtx, ok := vtxIntf.(*innerVertex)
+		if ok {
+			return vtx
+		} else if vtxIntf != nil {
+			s.serializer.ctx.Log.Error("got unexpected type %T in cache for vertex %s", vtxIntf, id)
+		}
 	}
 
-	if b, err := s.db.Get(id.Bytes()); err == nil {
+	bytes, err := s.db.Get(id.Bytes())
+	if err == nil {
 		// The key was in the database
-		if vtx, err := s.serializer.parseVertex(b); err == nil {
+		if vtx, err := s.serializer.parseVertex(bytes); err == nil {
 			s.dbCache.Put(id, vtx) // Cache the element
 			return vtx
 		}
 		s.serializer.ctx.Log.Error("Parsing failed on saved vertex.\nPrefixed key = %s\nBytes = %s",
 			id,
-			formatting.DumpBytes{Bytes: b})
+			formatting.DumpBytes{Bytes: bytes})
+	} else if err != database.ErrNotFound {
+		s.serializer.ctx.Log.Error("db error while getting vertex %s: %s", id, err)
 	}
 
 	s.dbCache.Put(id, nil) // Cache the miss
@@ -55,21 +64,25 @@ func (s *state) SetVertex(id ids.ID, vtx *innerVertex) error {
 
 func (s *state) Status(id ids.ID) choices.Status {
 	if statusIntf, found := s.dbCache.Get(id); found {
-		status, _ := statusIntf.(choices.Status)
-		return status
+		if status, ok := statusIntf.(choices.Status); ok {
+			return status
+		} else if statusIntf != nil {
+			s.serializer.ctx.Log.Error("got unexpected type %T in cache for status %s", statusIntf, id)
+		}
 	}
 
-	if b, err := s.db.Get(id.Bytes()); err == nil {
+	bytes, err := s.db.Get(id.Bytes())
+	if err == nil {
 		// The key was in the database
-		p := wrappers.Packer{Bytes: b}
+		p := wrappers.Packer{Bytes: bytes}
 		status := choices.Status(p.UnpackInt())
-		if p.Offset == len(b) && !p.Errored() {
+		if p.Offset == len(bytes) && !p.Errored() {
 			s.dbCache.Put(id, status)
 			return status
 		}
 		s.serializer.ctx.Log.Error("Parsing failed on saved status.\nPrefixed key = %s\nBytes = \n%s",
 			id,
-			formatting.DumpBytes{Bytes: b})
+			formatting.DumpBytes{Bytes: bytes})
 	}
 
 	s.dbCache.Put(id, choices.Unknown)
@@ -94,32 +107,43 @@ func (s *state) SetStatus(id ids.ID, status choices.Status) error {
 	return s.db.Put(id.Bytes(), p.Bytes)
 }
 
-func (s *state) Edge(id ids.ID) []ids.ID {
+// Returns the accepted frontier
+// Only returns a non-nil error if an invalid data in the database
+func (s *state) Edge(id ids.ID) ([]ids.ID, error) {
 	if frontierIntf, found := s.dbCache.Get(id); found {
-		frontier, _ := frontierIntf.([]ids.ID)
-		return frontier
+		if frontier, ok := frontierIntf.([]ids.ID); ok {
+			return frontier, nil
+		} else if frontierIntf != nil {
+			s.serializer.ctx.Log.Error("got unexpected type %T in cache for frontier", frontierIntf)
+		}
 	}
 
-	if b, err := s.db.Get(id.Bytes()); err == nil {
-		p := wrappers.Packer{Bytes: b}
+	bytes, err := s.db.Get(id.Bytes())
+	if err == nil {
+		p := wrappers.Packer{Bytes: bytes}
 
 		frontier := []ids.ID{}
 		for i := p.UnpackInt(); i > 0 && !p.Errored(); i-- {
-			id, _ := ids.ToID(p.UnpackFixedBytes(hashing.HashLen))
+			id, err := ids.ToID(p.UnpackFixedBytes(hashing.HashLen))
+			if err != nil {
+				return nil, fmt.Errorf("couldn't parse ID: %w", err)
+			}
 			frontier = append(frontier, id)
 		}
 
-		if p.Offset == len(b) && !p.Errored() {
+		if p.Offset == len(bytes) && !p.Errored() {
 			s.dbCache.Put(id, frontier)
-			return frontier
+			return frontier, nil
 		}
 		s.serializer.ctx.Log.Error("Parsing failed on saved ids.\nPrefixed key = %s\nBytes = %s",
 			id,
-			formatting.DumpBytes{Bytes: b})
+			formatting.DumpBytes{Bytes: bytes})
+	} else if err != database.ErrNotFound {
+		s.serializer.ctx.Log.Error("db error while getting accepted frontier: %s", err)
 	}
 
 	s.dbCache.Put(id, nil) // Cache the miss
-	return nil
+	return nil, nil
 }
 
 // SetEdge sets the frontier and returns an error if it fails to write to the db
