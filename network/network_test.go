@@ -26,6 +26,24 @@ import (
 var (
 	errClosed  = errors.New("closed")
 	errRefused = errors.New("connection refused")
+
+	ip0Port = 1
+	ip1Port = 2
+	ip0     = utils.IPDesc{
+		IP:   net.IPv6loopback,
+		Port: uint16(ip0Port),
+	}
+	id0 = ids.NewShortID(hashing.ComputeHash160Array([]byte(ip0.String())))
+	ip1 = utils.IPDesc{
+		IP:   net.IPv6loopback,
+		Port: uint16(ip1Port),
+	}
+	id1               = ids.NewShortID(hashing.ComputeHash160Array([]byte(ip1.String())))
+	testNetworkID     = uint32(0)
+	testAppVersion    = version.NewDefaultVersion("app", 0, 1, 0)
+	testVersionParser = version.NewDefaultParser()
+	testUpgrader      = func() Upgrader { return NewIPUpgrader() }
+	testVdrs          = validators.NewSet()
 )
 
 type testListener struct {
@@ -155,6 +173,141 @@ func (h *testHandler) Disconnected(id ids.ShortID) {
 	if h.disconnected != nil {
 		h.disconnected(id)
 	}
+}
+
+// Returns two networks, connected to each other
+func testNetwork(t *testing.T) (*sync.WaitGroup, *sync.WaitGroup, *network, *sync.WaitGroup, *sync.WaitGroup, *network) {
+	log := logging.NoLog{}
+	networkID := uint32(0)
+	appVersion := version.NewDefaultVersion("app", 0, 1, 0)
+	versionParser := version.NewDefaultParser()
+
+	listener0 := &testListener{
+		addr: &net.TCPAddr{
+			IP:   net.IPv6loopback,
+			Port: ip0Port,
+		},
+		inbound: make(chan net.Conn, 1<<10),
+		closed:  make(chan struct{}),
+	}
+	caller0 := &testDialer{
+		addr: &net.TCPAddr{
+			IP:   net.IPv6loopback,
+			Port: ip0Port,
+		},
+		outbounds: make(map[string]*testListener),
+	}
+	listener1 := &testListener{
+		addr: &net.TCPAddr{
+			IP:   net.IPv6loopback,
+			Port: ip1Port,
+		},
+		inbound: make(chan net.Conn, 1<<10),
+		closed:  make(chan struct{}),
+	}
+	caller1 := &testDialer{
+		addr: &net.TCPAddr{
+			IP:   net.IPv6loopback,
+			Port: ip1Port,
+		},
+		outbounds: make(map[string]*testListener),
+	}
+
+	caller0.outbounds[ip1.String()] = listener1
+	caller1.outbounds[ip0.String()] = listener0
+
+	serverUpgrader := NewIPUpgrader()
+	clientUpgrader := NewIPUpgrader()
+
+	vdrs := validators.NewSet()
+
+	var (
+		net0Connected    sync.WaitGroup
+		net1Connected    sync.WaitGroup
+		net0Disconnected sync.WaitGroup
+		net1Disconnected sync.WaitGroup
+	)
+
+	handler0 := &testHandler{
+		connected: func(id ids.ShortID) {
+			if !id.Equals(id0) {
+				net0Connected.Done()
+			}
+		},
+		disconnected: func(id ids.ShortID) {
+			if !id.Equals(id0) {
+				net0Disconnected.Done()
+			}
+		},
+	}
+	handler1 := &testHandler{
+		connected: func(id ids.ShortID) {
+			if !id.Equals(id1) {
+				net1Connected.Done()
+			}
+		},
+		disconnected: func(id ids.ShortID) {
+			if !id.Equals(id1) {
+				net1Disconnected.Done()
+			}
+		},
+	}
+
+	net0 := NewDefaultNetwork(
+		prometheus.NewRegistry(),
+		log,
+		id0,
+		ip0,
+		networkID,
+		appVersion,
+		versionParser,
+		listener0,
+		caller0,
+		serverUpgrader,
+		clientUpgrader,
+		vdrs,
+		vdrs,
+		handler0,
+	)
+	assert.NotNil(t, net0)
+
+	net1 := NewDefaultNetwork(
+		prometheus.NewRegistry(),
+		log,
+		id1,
+		ip1,
+		networkID,
+		appVersion,
+		versionParser,
+		listener1,
+		caller1,
+		serverUpgrader,
+		clientUpgrader,
+		vdrs,
+		vdrs,
+		handler1,
+	)
+	assert.NotNil(t, net1)
+
+	net0.Track(ip1)
+
+	net0Connected.Add(1)
+	net1Connected.Add(1)
+
+	go func() {
+		err := net0.Dispatch()
+		assert.Error(t, err)
+	}()
+	go func() {
+		err := net1.Dispatch()
+		assert.Error(t, err)
+	}()
+
+	net0Connected.Wait()
+	net1Connected.Wait()
+	// The two peers are connected
+
+	return &net0Connected, &net0Disconnected, net0.(*network), &net1Connected, &net1Disconnected, net1.(*network)
 }
 
 func TestNewDefaultNetwork(t *testing.T) {
@@ -877,5 +1030,218 @@ func TestTrackConnectedRace(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = net1.Close()
+	assert.NoError(t, err)
+}
+
+// Test peers repeatedly disconnecting and connecting
+// Each reconnection should be with a higher session ID
+func TestReconnect(t *testing.T) {
+	net0Connected, net0Disconnected, net0, net1Connected, net1Disconnected, net1 := testNetwork(t)
+
+	// Disconnect and reconnect repeatedly
+	for i := uint32(0); i < 10; i++ {
+		net0Connected.Add(1)
+		net1Connected.Add(1)
+		net0Disconnected.Add(1)
+		net1Disconnected.Add(1)
+
+		// Make sure session IDs match
+		peerSessionID0, ok := net0.nextSessionID[id1.Key()]
+		if !ok {
+			t.Fatal("should have next session ID")
+		}
+		peerSessionID1, ok := net1.nextSessionID[id0.Key()]
+		if !ok {
+			t.Fatal("should have next session ID")
+		}
+		if peerSessionID0 != peerSessionID1 {
+			t.Fatal("next session IDs should match")
+		}
+		if peerSessionID0 != i+1 {
+			t.Fatalf("next session ID is %d but should be %d", peerSessionID0, i+1)
+		}
+
+		// Cause net1's connection to net0 to close
+		err := net1.peers[id0.Key()].conn.Close()
+		assert.NoError(t, err)
+
+		// Wait until the nodes disconnect and then reconnect
+		net1Disconnected.Wait()
+		net0Disconnected.Wait()
+		net0Connected.Wait()
+		net1Connected.Wait()
+		// The two peers are connected
+
+		_, connected := net0.peers[id1.Key()]
+		if !connected {
+			t.Fatal("should be connected")
+		}
+		_, connected = net1.peers[id0.Key()]
+		if !connected {
+			t.Fatal("should be connected")
+		}
+	}
+
+	// Calling Close() below decrements these waitgroups...add 1 to each
+	// to avoid the waitgroup falling below 0
+	net0Disconnected.Add(1)
+	net1Disconnected.Add(1)
+	err := net0.Close()
+	assert.NoError(t, err)
+	err = net1.Close()
+	assert.NoError(t, err)
+}
+func TestReconnectHigherSessionID(t *testing.T) {
+	net0Connected, net0Disconnected, net0, _, net1Disconnected, net1 := testNetwork(t)
+
+	var (
+		cloneConnected    sync.WaitGroup
+		cloneDisconnected sync.WaitGroup
+	)
+
+	cloneHandler := &testHandler{
+		connected: func(id ids.ShortID) {
+			if !id.Equals(id1) {
+				cloneConnected.Done()
+			}
+		},
+		disconnected: func(id ids.ShortID) {
+			if !id.Equals(id1) {
+				cloneDisconnected.Done()
+			}
+		},
+	}
+
+	net1Clone := NewDefaultNetwork(
+		prometheus.NewRegistry(),
+		logging.NoLog{},
+		id1,
+		ip1,
+		testNetworkID,
+		testAppVersion,
+		testVersionParser,
+		net1.listener,
+		net1.dialer,
+		testUpgrader(),
+		testUpgrader(),
+		testVdrs,
+		testVdrs,
+		cloneHandler,
+	)
+	assert.NotNil(t, net1)
+	net1Clone.(*network).nextSessionID[id0.Key()] = 100
+
+	// net0 should disconnect from net1 and connect to net1Clone
+	net0Disconnected.Add(1)
+	net0Connected.Add(1)
+	// net1Clone should connect to net0
+	cloneConnected.Add(1)
+
+	net1Clone.Track(ip0)
+
+	// net0 should disconnect from net1 and connect to net1Clone
+	net0Disconnected.Wait()
+	net0Connected.Wait()
+	// net1Clone should connect to net0
+	cloneConnected.Wait()
+
+	cloneSessionID := net1Clone.(*network).nextSessionID[id0.Key()]
+	if cloneSessionID != 101 {
+		t.Fatalf("next session ID should be 101 but is %d", cloneSessionID)
+	}
+	net0SessionID := net0.nextSessionID[id1.Key()]
+	if net0SessionID != 101 {
+		t.Fatalf("next session ID should be 101 but is %d", net0SessionID)
+	}
+
+	// Calling Close() below decrements these waitgroups...add 1 to each
+	// to avoid the waitgroup falling below 0
+	net0Disconnected.Add(1)
+	net1Disconnected.Add(1)
+	cloneDisconnected.Add(1)
+	err := net0.Close()
+	assert.NoError(t, err)
+	err = net1.Close()
+	assert.NoError(t, err)
+	err = net1Clone.Close()
+	assert.NoError(t, err)
+}
+
+// Test that ensures a peer only drops an existing connection
+// to a peer for a new one if the incoming session ID
+// id is 0 or greater than the current one.
+// For this test we:
+// 1) Connect peer0 and peer1
+// 2) Make a "clone" of peer1 (same node ID)
+// 3) Tell the clone to connect with peer0 with a request ID <= the current one
+// 4) Make sure peer0 ignores the new connection from the "clone"
+func TestReconnectLowerSessionID(t *testing.T) {
+	_, net0Disconnected, net0, _, net1Disconnected, net1 := testNetwork(t)
+
+	net0.stateLock.Lock()
+	net1.stateLock.Lock()
+	// Set the session IDs to 100
+	net0.nextSessionID[id1.Key()] = 100
+	net1.nextSessionID[id0.Key()] = 100
+	net0.stateLock.Unlock()
+	net1.stateLock.Unlock()
+
+	var (
+		cloneConnected    sync.WaitGroup
+		cloneDisconnected sync.WaitGroup
+	)
+
+	cloneHandler := &testHandler{
+		connected: func(id ids.ShortID) {
+			if !id.Equals(id1) {
+				cloneConnected.Done()
+			}
+		},
+		disconnected: func(id ids.ShortID) {
+			if !id.Equals(id1) {
+				cloneDisconnected.Done()
+			}
+		},
+	}
+	// "clone" of net1 (same node ID)
+	clone := NewDefaultNetwork(
+		prometheus.NewRegistry(),
+		net1.log,
+		id1,
+		ip1,
+		testNetworkID,
+		testAppVersion,
+		testVersionParser,
+		net1.listener,
+		net1.dialer,
+		testUpgrader(),
+		testUpgrader(),
+		testVdrs,
+		testVdrs,
+		cloneHandler,
+	)
+
+	assert.NotNil(t, clone)
+	clone.(*network).nextSessionID[id0.Key()] = 99 // Set session ID with peer id0 to 5
+	clone.Track(ip0)
+	// Sleep for enough time for a peer to reject this connection attempt
+	// TODO: there's probably a better way to check that this connection is rejected
+	time.Sleep(100 * time.Millisecond)
+
+	_, isConnected := clone.(*network).peers[id0.Key()]
+	if isConnected {
+		t.Fatalf("should not be connected")
+	}
+
+	// Calling Close() below decrements these waitgroups...add 1 to each
+	// to avoid the waitgroup falling below 0
+	net0Disconnected.Add(1)
+	net1Disconnected.Add(1)
+	cloneDisconnected.Add(1)
+	err := net0.Close()
+	assert.NoError(t, err)
+	err = net1.Close()
+	assert.NoError(t, err)
+	err = clone.Close()
 	assert.NoError(t, err)
 }

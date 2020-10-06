@@ -146,6 +146,13 @@ type network struct {
 	// TODO: bound the size of [myIPs] to avoid DoS. LRU caching would be ideal
 	myIPs map[string]struct{} // set of IPs that resulted in my ID.
 	peers map[[20]byte]*peer
+
+	// Node ID --> Next session ID to use with this peer
+	// Invariant: We should only drop a connection to a peer
+	// in favor of connections whose session ID is 0 or >=
+	// the current session ID. The next session ID is incremented
+	// each time we connect to a given peer.
+	nextSessionID map[[20]byte]uint32
 }
 
 // NewDefaultNetwork returns a new Network implementation with the provided
@@ -274,6 +281,7 @@ func NewNetwork(
 		retryDelay:                         make(map[string]time.Duration),
 		myIPs:                              map[string]struct{}{ip.String(): {}},
 		peers:                              make(map[[20]byte]*peer),
+		nextSessionID:                      make(map[[20]byte]uint32),
 		readBufferSize:                     readBufferSize,
 		readHandshakeTimeout:               readHandshakeTimeout,
 	}
@@ -959,8 +967,6 @@ func (n *network) upgrade(p *peer, upgrader Upgrader) error {
 // assumes the stateLock is not held. Returns an error if the peer couldn't be
 // added.
 func (n *network) tryAddPeer(p *peer) error {
-	key := p.id.Key()
-
 	n.stateLock.Lock()
 	defer n.stateLock.Unlock()
 
@@ -976,8 +982,7 @@ func (n *network) tryAddPeer(p *peer) error {
 		if !p.ip.IsZero() {
 			// if n.ip is less useful than p.ip set it to this IP
 			if n.ip.IsZero() {
-				n.log.Info("setting my ip to %s because I was able to connect to myself through this channel",
-					p.ip)
+				n.log.Info("setting own IP to %s", p.ip)
 				n.ip = p.ip
 			}
 			str := p.ip.String()
@@ -988,19 +993,6 @@ func (n *network) tryAddPeer(p *peer) error {
 		return errPeerIsMyself
 	}
 
-	// If I am already connected to this peer, then I should close this new
-	// connection.
-	if _, ok := n.peers[key]; ok {
-		if !p.ip.IsZero() {
-			str := p.ip.String()
-			delete(n.disconnectedIPs, str)
-			delete(n.retryDelay, str)
-		}
-		return errDuplicatedConnection
-	}
-
-	n.peers[key] = p
-	n.numPeers.Set(float64(len(n.peers)))
 	p.Start()
 	return nil
 }
@@ -1029,7 +1021,6 @@ func (n *network) connected(p *peer) {
 	n.log.Debug("connected to %s at %s", p.id, p.ip)
 	if !p.ip.IsZero() {
 		str := p.ip.String()
-
 		delete(n.disconnectedIPs, str)
 		delete(n.retryDelay, str)
 		n.connectedIPs[str] = struct{}{}

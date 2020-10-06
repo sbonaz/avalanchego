@@ -64,6 +64,9 @@ type peer struct {
 	// unix time of the last message sent and received respectively
 	lastSent, lastReceived int64
 
+	// Session ID the peer is trying to connect with
+	incomingSessionID uint32
+
 	tickerCloser chan struct{}
 
 	// ticker processes
@@ -396,10 +399,12 @@ func (p *peer) Version() {
 	msg, err := p.net.b.Version(
 		p.net.networkID,
 		p.net.nodeID,
+		p.net.nextSessionID[p.id.Key()],
 		p.net.clock.Unix(),
 		p.net.ip,
 		p.net.version.String(),
 	)
+
 	p.net.stateLock.Unlock()
 	p.net.log.AssertNoError(err)
 	p.Send(msg)
@@ -476,6 +481,7 @@ func (p *peer) version(msg Msg) {
 		return
 	}
 
+	// Check that our clocks are in sync
 	myTime := float64(p.net.clock.Unix())
 	if peerTime := float64(msg.Get(MyTime).(uint64)); math.Abs(peerTime-myTime) > p.net.maxClockDifference.Seconds() {
 		if p.net.beacons.Contains(p.id) {
@@ -494,6 +500,7 @@ func (p *peer) version(msg Msg) {
 		return
 	}
 
+	// Check that our versions are compatible
 	peerVersionStr := msg.Get(VersionStr).(string)
 	peerVersion, err := p.net.parser.Parse(peerVersionStr)
 	if err != nil {
@@ -502,7 +509,6 @@ func (p *peer) version(msg Msg) {
 		p.discardIP()
 		return
 	}
-
 	if p.net.version.Before(peerVersion) {
 		if p.net.beacons.Contains(p.id) {
 			p.net.log.Info("beacon %s attempting to connect with newer version %s. You may want to update your client",
@@ -514,7 +520,6 @@ func (p *peer) version(msg Msg) {
 				peerVersion)
 		}
 	}
-
 	if err := p.net.version.Compatible(peerVersion); err != nil {
 		p.net.log.Debug("peer version not compatible due to %s", err)
 
@@ -527,15 +532,33 @@ func (p *peer) version(msg Msg) {
 			peerVersion)
 	}
 
+	peerKey := p.id.Key()
+	sessionID := msg.Get(SessionID).(uint32)
+	p.net.stateLock.Lock()
+	nextSessionID := p.net.nextSessionID[peerKey]
+	_, isConnected := p.net.peers[peerKey]
+	p.net.stateLock.Unlock()
+
+	// If we already have a connection with this peer, we should only drop it
+	// in favor of this new connection if the incoming session ID is 0 (meaning
+	// the peer has restarted) or the incoming session ID is greater than the
+	// current one (meaning the peer has disconnected and is reconnecting)
+	if isConnected && sessionID != 0 && sessionID < nextSessionID {
+		p.net.log.Debug("dropping connection request from %s. Incoming session ID: %d. Ours: %d",
+			sessionID,
+			nextSessionID,
+		)
+		p.discardIP()
+		return
+	}
+
 	if p.ip.IsZero() {
 		// we only care about the claimed IP if we don't know the IP yet
 		peerIP := msg.Get(IP).(utils.IPDesc)
-
 		addr := p.conn.RemoteAddr()
 		localPeerIP, err := utils.ToIPDesc(addr.String())
 		if err == nil {
-			// If we have no clue what the peer's IP is, we can't perform any
-			// verification
+			// If we don't know the peer's IP, we can't perform any verification
 			if peerIP.IP.Equal(localPeerIP.IP) {
 				// if the IPs match, add this ip:port pair to be tracked
 				p.net.stateLock.Lock()
@@ -552,6 +575,7 @@ func (p *peer) version(msg Msg) {
 
 	p.versionStr = peerVersion.String()
 	p.gotVersion = true
+	p.incomingSessionID = sessionID
 	p.tryMarkConnected()
 }
 
@@ -754,7 +778,23 @@ func (p *peer) tryMarkConnected() {
 			return
 		}
 
+		key := p.id.Key()
+		oldConnection, ok := p.net.peers[key]
+		if ok {
+			p.net.stateLock.Unlock()
+			oldConnection.Close()
+			p.net.stateLock.Lock()
+		}
 		p.connected = true
+
+		// Next session ID = 1 + max(our next session ID, incoming session ID)
+		if p.incomingSessionID > p.net.nextSessionID[key] {
+			p.net.nextSessionID[key] = p.incomingSessionID
+		}
+		// The next connection with this peer should have session ID > current one
+		p.net.nextSessionID[p.id.Key()]++ // Wrapping around to 0 is fine
+		p.net.peers[key] = p
+		p.net.numPeers.Set(float64(len(p.net.peers)))
 		p.net.connected(p)
 	}
 }

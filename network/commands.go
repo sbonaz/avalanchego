@@ -25,6 +25,7 @@ const (
 	ContainerBytes                   // Used for gossiping
 	ContainerIDs                     // Used for querying
 	MultiContainerBytes              // Used in MultiPut
+	SessionID                        // Used in handshake
 )
 
 // Packer returns the packer function that can be used to pack this field.
@@ -42,6 +43,8 @@ func (f Field) Packer() func(*wrappers.Packer, interface{}) {
 		return wrappers.TryPackIP
 	case Peers:
 		return wrappers.TryPackIPList
+	case SessionID:
+		return wrappers.TryPackInt
 	case ChainID: // TODO: This will be shortened to use a modified varint spec
 		return wrappers.TryPackHash
 	case RequestID:
@@ -76,6 +79,8 @@ func (f Field) Unpacker() func(*wrappers.Packer) interface{} {
 		return wrappers.TryUnpackIP
 	case Peers:
 		return wrappers.TryUnpackIPList
+	case SessionID:
+		return wrappers.TryUnpackInt
 	case ChainID: // TODO: This will be shortened to use a modified varint spec
 		return wrappers.TryUnpackHash
 	case RequestID:
@@ -109,6 +114,8 @@ func (f Field) String() string {
 		return "IP"
 	case Peers:
 		return "Peers"
+	case SessionID:
+		return "SessionID"
 	case ChainID:
 		return "ChainID"
 	case RequestID:
@@ -201,7 +208,7 @@ var (
 	Messages = map[Op][]Field{
 		// Handshake:
 		GetVersion:  {},
-		Version:     {NetworkID, NodeID, MyTime, IP, VersionStr},
+		Version:     {NetworkID, NodeID, MyTime, IP, VersionStr, SessionID},
 		GetPeerList: {},
 		PeerList:    {Peers},
 		Ping:        {},
