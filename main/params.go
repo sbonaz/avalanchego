@@ -135,7 +135,7 @@ func init() {
 	bootstrapIDs := fs.String("bootstrap-ids", "default", "Comma separated list of bootstrap peer ids to connect to. Example: NodeID-JR4dVmy6ffUGAKCBDkyCbeZbyHQBeDsET,NodeID-8CrVPQZ4VSqgL8zTdvL14G8HqAfrBr4z")
 
 	// Staking:
-	consensusPort := fs.Uint("staking-port", 9651, "Port of the consensus server")
+	stakingPort := fs.Uint("staking-port", 9651, "Port of the consensus server")
 	fs.BoolVar(&Config.EnableStaking, "staking-enabled", true, "Enable staking. If enabled, Network TLS is required.")
 	fs.BoolVar(&Config.EnableP2PTLS, "p2p-tls-enabled", true, "Require TLS to authenticate network communication")
 	fs.StringVar(&Config.StakingKeyFile, "staking-tls-key-file", defaultStakingKeyPath, "TLS private key for staking")
@@ -151,8 +151,13 @@ func init() {
 	networkInitialTimeout := fs.Int64("network-initial-timeout", int64(10*time.Second), "Initial timeout value of the adaptive timeout manager, in nanoseconds.")
 	networkMinimumTimeout := fs.Int64("network-minimum-timeout", int64(500*time.Millisecond), "Minimum timeout value of the adaptive timeout manager, in nanoseconds.")
 	networkMaximumTimeout := fs.Int64("network-maximum-timeout", int64(10*time.Second), "Maximum timeout value of the adaptive timeout manager, in nanoseconds.")
-	fs.Float64Var(&Config.NetworkConfig.TimeoutMultiplier, "network-timeout-multiplier", 1.1, "Multiplier of the timeout after a failed request.")
-	networkTimeoutReduction := fs.Int64("network-timeout-reduction", int64(time.Millisecond), "Reduction of the timeout after a successful request, in nanoseconds.")
+	networkTimeoutInc := fs.Int64("network-timeout-increase", 60*int64(time.Millisecond), "Increase of network timeout after a failed request, in nanoseconds.")
+	networkTimeoutDec := fs.Int64("network-timeout-reduction", 12*int64(time.Millisecond), "Decrease of network timeout after a successful request, in nanoseconds.")
+
+	// Benchlist Parameters:
+	fs.IntVar(&Config.BenchlistConfig.Threshold, "benchlist-fail-threshold", 10, "Number of consecutive failed queries before benchlisting a node.")
+	fs.BoolVar(&Config.BenchlistConfig.PeerSummaryEnabled, "benchlist-peer-summary-enabled", false, "Enables peer specific query latency metrics.")
+	benchlistDuration := fs.Int64("benchlist-duration", int64(time.Hour), "Amount of time a peer is benchlisted after surpassing the threshold.")
 
 	// Plugins:
 	fs.StringVar(&Config.PluginDir, "plugin-dir", defaultPluginDirs[0], "Plugin directory for Avalanche VMs")
@@ -245,6 +250,7 @@ func init() {
 	var ip net.IP
 	// If public IP is not specified, get it using shell command dig
 	if *consensusIP == "" {
+		Config.AttemptedNATTraversal = true
 		Config.Nat = nat.GetRouter()
 		ip, err = Config.Nat.ExternalIP()
 		if err != nil {
@@ -262,9 +268,8 @@ func init() {
 
 	Config.StakingIP = utils.IPDesc{
 		IP:   ip,
-		Port: uint16(*consensusPort),
+		Port: uint16(*stakingPort),
 	}
-	Config.StakingLocalPort = uint16(*consensusPort)
 
 	defaultBootstrapIPs, defaultBootstrapIDs := genesis.SampleBeacons(networkID, 5)
 
@@ -422,13 +427,21 @@ func init() {
 		*networkInitialTimeout > *networkMaximumTimeout {
 		errs.Add(errors.New("initial timeout should be in the range [minimumTimeout, maximumTimeout]"))
 	}
-	if *networkTimeoutReduction < 0 {
+	if *networkTimeoutDec < 0 {
 		errs.Add(errors.New("timeout reduction can't be negative"))
 	}
+	if *networkTimeoutInc < 0 {
+		errs.Add(errors.New("timeout increase can't be negative"))
+	}
+
 	Config.NetworkConfig.InitialTimeout = time.Duration(*networkInitialTimeout)
 	Config.NetworkConfig.MinimumTimeout = time.Duration(*networkMinimumTimeout)
 	Config.NetworkConfig.MaximumTimeout = time.Duration(*networkMaximumTimeout)
-	Config.NetworkConfig.TimeoutReduction = time.Duration(*networkTimeoutReduction)
+	Config.NetworkConfig.TimeoutInc = time.Duration(*networkTimeoutInc)
+	Config.NetworkConfig.TimeoutDec = time.Duration(*networkTimeoutDec)
+
+	Config.BenchlistConfig.Duration = time.Duration(*benchlistDuration)
+	Config.BenchlistConfig.MaxPortion = (1.0 - (float64(Config.ConsensusParams.Alpha) / float64(Config.ConsensusParams.K))) / 3.0
 
 	if *consensusGossipFrequency < 0 {
 		errs.Add(errors.New("gossip frequency can't be negative"))

@@ -26,6 +26,7 @@ import (
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/common/queue"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/bootstrap"
+	"github.com/ava-labs/avalanchego/snow/networking/benchlist"
 	"github.com/ava-labs/avalanchego/snow/networking/router"
 	"github.com/ava-labs/avalanchego/snow/networking/sender"
 	"github.com/ava-labs/avalanchego/snow/networking/throttler"
@@ -236,7 +237,7 @@ func defaultVM() (*VM, database.Database) {
 		keys[0].PublicKey().Address(),           // change addr
 	); err != nil {
 		panic(err)
-	} else if err := vm.issueTx(tx); err != nil {
+	} else if err := vm.mempool.IssueTx(tx); err != nil {
 		panic(err)
 	} else if blk, err := vm.BuildBlock(); err != nil {
 		panic(err)
@@ -366,7 +367,7 @@ func TestAddValidatorCommit(t *testing.T) {
 	}
 
 	// trigger block creation
-	if err := vm.issueTx(tx); err != nil {
+	if err := vm.mempool.IssueTx(tx); err != nil {
 		t.Fatal(err)
 	}
 	blk, err := vm.BuildBlock()
@@ -490,7 +491,7 @@ func TestAddValidatorReject(t *testing.T) {
 	}
 
 	// trigger block creation
-	if err := vm.issueTx(tx); err != nil {
+	if err := vm.mempool.IssueTx(tx); err != nil {
 		t.Fatal(err)
 	}
 	blk, err := vm.BuildBlock()
@@ -568,7 +569,7 @@ func TestAddSubnetValidatorAccept(t *testing.T) {
 	}
 
 	// trigger block creation
-	if err := vm.issueTx(tx); err != nil {
+	if err := vm.mempool.IssueTx(tx); err != nil {
 		t.Fatal(err)
 	}
 	blk, err := vm.BuildBlock()
@@ -649,7 +650,7 @@ func TestAddSubnetValidatorReject(t *testing.T) {
 	}
 
 	// trigger block creation
-	if err := vm.issueTx(tx); err != nil {
+	if err := vm.mempool.IssueTx(tx); err != nil {
 		t.Fatal(err)
 	}
 	blk, err := vm.BuildBlock()
@@ -1003,7 +1004,7 @@ func TestCreateChain(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatal(err)
-	} else if err := vm.issueTx(tx); err != nil {
+	} else if err := vm.mempool.IssueTx(tx); err != nil {
 		t.Fatal(err)
 	} else if blk, err := vm.BuildBlock(); err != nil { // should contain proposal to create chain
 		t.Fatal(err)
@@ -1059,7 +1060,7 @@ func TestCreateSubnet(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatal(err)
-	} else if err := vm.issueTx(createSubnetTx); err != nil {
+	} else if err := vm.mempool.IssueTx(createSubnetTx); err != nil {
 		t.Fatal(err)
 	} else if blk, err := vm.BuildBlock(); err != nil { // should contain proposal to create subnet
 		t.Fatal(err)
@@ -1089,7 +1090,7 @@ func TestCreateSubnet(t *testing.T) {
 		ids.ShortEmpty, // change addr
 	); err != nil {
 		t.Fatal(err)
-	} else if err := vm.issueTx(addValidatorTx); err != nil {
+	} else if err := vm.mempool.IssueTx(addValidatorTx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1304,7 +1305,7 @@ func TestAtomicImport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := vm.issueTx(tx); err != nil {
+	if err := vm.mempool.IssueTx(tx); err != nil {
 		t.Fatal(err)
 	} else if blk, err := vm.BuildBlock(); err != nil {
 		t.Fatal(err)
@@ -1681,15 +1682,16 @@ func TestBootstrapPartiallyAccepted(t *testing.T) {
 	beacons := vdrs
 
 	timeoutManager := timeout.Manager{}
+	benchlist := benchlist.NewNoBenchlist()
 	timeoutManager.Initialize(&timer.AdaptiveTimeoutConfig{
-		InitialTimeout:    time.Millisecond,
-		MinimumTimeout:    time.Millisecond,
-		MaximumTimeout:    10 * time.Second,
-		TimeoutMultiplier: 1.1,
-		TimeoutReduction:  time.Millisecond,
-		Namespace:         "",
-		Registerer:        prometheus.NewRegistry(),
-	})
+		InitialTimeout: time.Millisecond,
+		MinimumTimeout: time.Millisecond,
+		MaximumTimeout: 10 * time.Second,
+		TimeoutInc:     2 * time.Millisecond,
+		TimeoutDec:     time.Millisecond,
+		Namespace:      "",
+		Registerer:     prometheus.NewRegistry(),
+	}, benchlist)
 	go timeoutManager.Dispatch()
 
 	chainRouter := &router.ChainRouter{}
