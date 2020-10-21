@@ -5,6 +5,8 @@ package versiondb
 
 import (
 	"bytes"
+	"crypto/rand"
+	"fmt"
 	"testing"
 
 	"github.com/ava-labs/avalanchego/database"
@@ -370,4 +372,36 @@ func TestSetDatabaseClosed(t *testing.T) {
 	} else if db.GetDatabase() != nil {
 		t.Fatalf("Unexpected database from db.GetDatabase")
 	}
+
+}
+
+func BenchmarkAbort(b *testing.B) {
+	for _, numKVPairs := range []int{32, 128, 512, 1024} {
+		for _, kvSize := range []int{8, 128, 512, 1024} {
+			b.Run(
+				fmt.Sprintf("%d k/v pairs. Keys/Values are %d bytes", numKVPairs, kvSize),
+				func(b *testing.B) {
+					baseDB := memdb.New()
+					db := New(baseDB)
+					defer baseDB.Close()
+					defer db.Close()
+
+					for i := 0; i < b.N; i++ {
+						// Populate the db with random K/V pairs of the correct length
+						for j := 0; j < numKVPairs; j++ {
+							kv := make([]byte, kvSize)
+							if _, err := rand.Read(kv); err != nil {
+								b.Fatal(err)
+							}
+							if err := db.Put(kv, kv); err != nil {
+								b.Fatal(err)
+							}
+						}
+						db.Abort()
+					}
+				},
+			)
+		}
+	}
+
 }
