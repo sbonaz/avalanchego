@@ -6,12 +6,14 @@ package cache
 import (
 	"container/list"
 	"sync"
+
+	"github.com/ava-labs/avalanchego/ids"
 )
 
 // EvictableLRU is an LRU cache that notifies the objects when they are evicted.
 type EvictableLRU struct {
 	lock      sync.Mutex
-	entryMap  map[[32]byte]*list.Element
+	entryMap  map[ids.ID]*list.Element
 	entryList *list.List
 	Size      int
 }
@@ -34,7 +36,7 @@ func (c *EvictableLRU) Flush() {
 
 func (c *EvictableLRU) init() {
 	if c.entryMap == nil {
-		c.entryMap = make(map[[32]byte]*list.Element)
+		c.entryMap = make(map[ids.ID]*list.Element)
 	}
 	if c.entryList == nil {
 		c.entryList = list.New()

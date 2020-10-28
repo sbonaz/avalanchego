@@ -13,14 +13,14 @@ const (
 )
 
 // Set is a set of IDs
-type Set map[[32]byte]bool
+type Set map[ID]bool
 
 func (ids *Set) init(size int) {
 	if *ids == nil {
 		if minSetSize > size {
 			size = minSetSize
 		}
-		*ids = make(map[[32]byte]bool, size)
+		*ids = make(map[ID]bool, size)
 	}
 }
 

@@ -26,12 +26,12 @@ type Input struct {
 
 	// Key: Transaction ID
 	// Value: Node that represents this transaction in the conflict graph
-	txs map[[32]byte]*inputTx
+	txs map[ids.ID]*inputTx
 
 	// Key: UTXO ID
 	// Value: Node that represents the status of the transactions consuming this
 	//        input
-	utxos map[[32]byte]inputUTXO
+	utxos map[ids.ID]inputUTXO
 }
 
 type inputTx struct {
@@ -69,8 +69,8 @@ type inputUTXO struct {
 
 // Initialize implements the ConflictGraph interface
 func (ig *Input) Initialize(ctx *snow.Context, params sbcon.Parameters) error {
-	ig.txs = make(map[[32]byte]*inputTx)
-	ig.utxos = make(map[[32]byte]inputUTXO)
+	ig.txs = make(map[ids.ID]*inputTx)
+	ig.utxos = make(map[ids.ID]inputUTXO)
 
 	return ig.common.Initialize(ctx, params)
 }

@@ -13,11 +13,11 @@ const (
 )
 
 // UniqueBag ...
-type UniqueBag map[[32]byte]BitSet
+type UniqueBag map[ID]BitSet
 
 func (b *UniqueBag) init() {
 	if *b == nil {
-		*b = make(map[[32]byte]BitSet, minUniqueBagSize)
+		*b = make(map[ID]BitSet, minUniqueBagSize)
 	}
 }
 

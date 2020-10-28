@@ -148,7 +148,7 @@ type manager struct {
 	chainsLock sync.Mutex
 	// Key: Chain's ID
 	// Value: The chain
-	chains map[[32]byte]*router.Handler
+	chains map[ids.ID]*router.Handler
 }
 
 // New returns a new Manager where:
@@ -159,7 +159,7 @@ type manager struct {
 func New(config *ManagerConfig) Manager {
 	m := &manager{
 		ManagerConfig: *config,
-		chains:        make(map[[32]byte]*router.Handler),
+		chains:        make(map[ids.ID]*router.Handler),
 	}
 	m.Initialize()
 	return m

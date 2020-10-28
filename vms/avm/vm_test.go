@@ -61,7 +61,7 @@ func init() {
 }
 
 type snLookup struct {
-	chainsToSubnet map[[32]byte]ids.ID
+	chainsToSubnet map[ids.ID]ids.ID
 }
 
 func (sn *snLookup) SubnetID(chainID ids.ID) (ids.ID, error) {
@@ -95,7 +95,7 @@ func NewContext(t *testing.T) *snow.Context {
 	}
 
 	sn := &snLookup{
-		chainsToSubnet: make(map[[32]byte]ids.ID),
+		chainsToSubnet: make(map[ids.ID]ids.ID),
 	}
 	sn.chainsToSubnet[chainID.Key()] = ctx.SubnetID
 	sn.chainsToSubnet[platformChainID.Key()] = ctx.SubnetID

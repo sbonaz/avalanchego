@@ -26,7 +26,7 @@ type Memory struct {
 	lock  sync.Mutex
 	log   logging.Logger
 	codec codec.Codec
-	locks map[[32]byte]*rcLock
+	locks map[ids.ID]*rcLock
 	db    database.Database
 }
 
@@ -34,7 +34,7 @@ type Memory struct {
 func (m *Memory) Initialize(log logging.Logger, db database.Database) {
 	m.log = log
 	m.codec = codec.NewDefault()
-	m.locks = make(map[[32]byte]*rcLock)
+	m.locks = make(map[ids.ID]*rcLock)
 	m.db = db
 }
 
