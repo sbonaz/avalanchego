@@ -25,8 +25,8 @@ type Tx interface {
 	// PrecludedBy is a set where each element is the ID of a transaction that
 	// precludes this transaction. That is, if the transaction is accepted
 	// then this transaction must eventually be rejected. Each transaction in
-	// this list must have been issued and must not have been accepted
-	// when this transaction is issued.
+	// this list must have been added to consensus and must not have been
+	// accepted when this transaction is added to consensus.
 	//
 	// Preclusion is not necessarily symmetric.
 	// If Tx A precludes Tx B, Tx B need not preclude Tx A.
@@ -40,13 +40,15 @@ type Tx interface {
 	//
 	// PrecludedBy is only evaluated once, when the tx is put into consensus.
 	// Its return value should never change.
-	// If a transaction is issued after this one, and that transaction precludes
-	// this one, it should return this transaction's ID in the return value
-	// of its Precludes() method.
+	// If a transaction is added to consensus after this one, and that
+	// transaction precludes this one, it should return this transaction's ID
+	// in its Precludes() method.
 	PrecludedBy() []ids.ID
 
 	// Precludes is a set where each element is the ID of a transaction
-	// that this transaction precludes.
+	// that this transaction precludes. Each transaction in the set must
+	// be processing at the time this transaction is added.
+	// Precludes is only evaluated once, when the tx is put into consensus.
 	Precludes() []ids.ID
 
 	// Verify that this transaction is valid

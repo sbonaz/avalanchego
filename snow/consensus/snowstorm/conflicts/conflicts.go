@@ -62,7 +62,9 @@ func (c *Conflicts) Add(txIntf choices.Decidable) error {
 		return errInvalidTxType
 	}
 	txID := tx.ID()
-	c.txs[txID] = tx // Mark that [tx] is processing
+
+	// Mark that [tx] is processing
+	c.txs[txID] = tx
 
 	// Mark which txs preclude [tx]
 	precludedBy := c.precludedBy[txID]
@@ -70,6 +72,8 @@ func (c *Conflicts) Add(txIntf choices.Decidable) error {
 	c.precludedBy[txID] = precludedBy
 
 	for precludor := range precludedBy {
+		// Note that [precludor] must be processing
+		// due to [tx.PrecludedBy]'s spec
 		precludes := c.precludes[precludor]
 		precludes.Add(txID)
 		c.precludes[precludor] = precludes
@@ -80,12 +84,12 @@ func (c *Conflicts) Add(txIntf choices.Decidable) error {
 	txPrecludes.Add(tx.Precludes()...)
 	c.precludes[txID] = txPrecludes
 
-	for precludee := range txPrecludes {
-		precludedBy, ok := c.precludedBy[precludee]
-		if ok { // Ignore non-processing txs
-			precludedBy.Add(txID)
-			c.precludedBy[precludee] = precludedBy
-		}
+	for precluded := range txPrecludes {
+		// Note that [precluded] must be processing
+		// due to [tx.Precludes]' spec
+		precludedBy := c.precludedBy[precluded]
+		precludedBy.Add(txID)
+		c.precludedBy[precluded] = precludedBy
 	}
 
 	// Mark which txs [tx] depends on
@@ -105,7 +109,7 @@ func (c *Conflicts) Add(txIntf choices.Decidable) error {
 	return nil
 }
 
-// IsVirtuous returns true iff a processing tx precludes the given tx.
+// IsVirtuous returns false iff a processing tx precludes the given tx.
 // It may be called with a tx that isn't processing.
 func (c *Conflicts) IsVirtuous(txIntf choices.Decidable) (bool, error) {
 	tx, ok := txIntf.(Tx)
