@@ -38,20 +38,126 @@ func TestInvalidTx(t *testing.T) {
 	assert.Empty(t, c.pendingAccept)
 }
 
-func TestNoConflicts(t *testing.T) {
-	c := New()
+func TestPrecludedBy(t *testing.T) {
+	type step struct {
+		*TestTx
+		ExpectedPrecludedBy []*TestTx
+		ExpectedToPreclude  []*TestTx
+	}
 
-	tx := &TestTx{TestDecidable: choices.TestDecidable{
-		IDV:     ids.GenerateTestID(),
-		StatusV: choices.Processing,
-	}}
+	type test struct {
+		txs                 []*TestTx
+		expectedPrecludedBy map[ids.ID][]ids.ID
+	}
 
-	precludedBy, err := c.PrecludedBy(tx)
-	assert.NoError(t, err)
-	assert.Empty(t, precludedBy)
+	id1 := ids.GenerateTestID()
+	id2 := ids.GenerateTestID()
+
+	tests := []test{
+		{
+			txs: []*TestTx{
+				{
+					TestDecidable: choices.TestDecidable{
+						IDV:     id1,
+						StatusV: choices.Processing,
+					},
+				},
+			},
+			expectedPrecludedBy: map[ids.ID][]ids.ID{id1: nil},
+		},
+		{
+			txs: []*TestTx{
+				{
+					TestDecidable: choices.TestDecidable{
+						IDV:     id1,
+						StatusV: choices.Processing,
+					},
+				},
+				{
+					TestDecidable: choices.TestDecidable{
+						IDV:     id2,
+						StatusV: choices.Processing,
+					},
+					PrecludedByV: []ids.ID{id1},
+				},
+			},
+			expectedPrecludedBy: map[ids.ID][]ids.ID{
+				id1: nil,
+				id2: {id1},
+			},
+		},
+		{
+			txs: []*TestTx{
+				{
+					TestDecidable: choices.TestDecidable{
+						IDV:     id1,
+						StatusV: choices.Processing,
+					},
+				},
+				{
+					TestDecidable: choices.TestDecidable{
+						IDV:     id2,
+						StatusV: choices.Processing,
+					},
+					PrecludesV: []ids.ID{id1},
+				},
+			},
+			expectedPrecludedBy: map[ids.ID][]ids.ID{
+				id1: {id2},
+				id2: nil,
+			},
+		},
+		{
+			txs: []*TestTx{
+				{
+					TestDecidable: choices.TestDecidable{
+						IDV:     id1,
+						StatusV: choices.Processing,
+					},
+				},
+				{
+					TestDecidable: choices.TestDecidable{
+						IDV:     id2,
+						StatusV: choices.Processing,
+					},
+					PrecludesV:   []ids.ID{id1},
+					PrecludedByV: []ids.ID{id1},
+				},
+			},
+			expectedPrecludedBy: map[ids.ID][]ids.ID{
+				id1: {id2},
+				id2: {id1},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		c := New()
+
+		txIDToTxs := map[ids.ID]*TestTx{}
+
+		// Add the txs
+		for _, tx := range test.txs {
+			err := c.Add(tx)
+			assert.NoError(t, err)
+			txIDToTxs[tx.ID()] = tx
+		}
+
+		// Ensure that txs preclude each other correctly
+		for id, expectedPrecludedBy := range test.expectedPrecludedBy {
+			precludedBy, err := c.PrecludedBy(txIDToTxs[id])
+			assert.NoError(t, err)
+			assert.Len(t, expectedPrecludedBy, len(precludedBy))
+
+			for _, id := range expectedPrecludedBy {
+				assert.Contains(t, precludedBy, txIDToTxs[id])
+			}
+		}
+
+	}
 }
 
-func TestIsVirtuousConflicts(t *testing.T) {
+func TestIsVirtuousNoConflicts(t *testing.T) {
 	c := New()
 
 	tx := &TestTx{TestDecidable: choices.TestDecidable{
