@@ -17,6 +17,7 @@ type rejector struct {
 
 func (r *rejector) Dependencies() ids.Set { return r.deps }
 
+// If any of [r]'s dependencies are fulfilled, [r.tx] is rejected.
 func (r *rejector) Fulfill(ids.ID) {
 	if r.rejected {
 		return

@@ -29,13 +29,13 @@ func TestInvalidTx(t *testing.T) {
 		assert.Error(t, err)
 	}
 	{
-		_, err := c.Conflicts(tx)
+		_, err := c.PrecludedBy(tx)
 		assert.Error(t, err)
 	}
 	assert.Empty(t, c.txs)
-	assert.Empty(t, c.utxos)
+	assert.Empty(t, c.precludedBy)
+	assert.Empty(t, c.precludes)
 	assert.Empty(t, c.pendingAccept)
-	assert.Empty(t, c.pendingReject)
 }
 
 func TestNoConflicts(t *testing.T) {
@@ -46,9 +46,9 @@ func TestNoConflicts(t *testing.T) {
 		StatusV: choices.Processing,
 	}}
 
-	conflicts, err := c.Conflicts(tx)
+	precludedBy, err := c.PrecludedBy(tx)
 	assert.NoError(t, err)
-	assert.Empty(t, conflicts)
+	assert.Empty(t, precludedBy)
 }
 
 func TestIsVirtuousConflicts(t *testing.T) {
@@ -85,9 +85,9 @@ func TestAcceptConflicts(t *testing.T) {
 	assert.Len(t, toAccepts, 1)
 	assert.Empty(t, toRejects)
 	assert.Empty(t, c.txs)
-	assert.Empty(t, c.utxos)
+	assert.Empty(t, c.precludedBy)
+	assert.Empty(t, c.precludes)
 	assert.Empty(t, c.pendingAccept)
-	assert.Empty(t, c.pendingReject)
 
 	toAccept := toAccepts[0]
 	assert.Equal(t, tx.ID(), toAccept.ID())

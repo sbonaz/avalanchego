@@ -18,15 +18,40 @@ type Tx interface {
 	//
 	// Similarly, each element of Dependencies must be accepted before this
 	// transaction is accepted.
+	//
+	// Each element must not be rejected
 	Dependencies() []Tx
 
-	// InputIDs is a set where each element is the ID of a piece of state that
-	// will be consumed if this transaction is accepted.
+	// PrecludedBy is a set where each element is the ID of a transaction that
+	// precludes this transaction. That is, if the transaction is accepted
+	// then this transaction must eventually be rejected. Each transaction in
+	// this list must have been issued and must not have been accepted
+	// when this transaction is issued.
 	//
-	// In the context of a UTXO-based payments system, for example, this would
-	// be the IDs of the UTXOs consumed by this transaction
-	InputIDs() []ids.ID
+	// Preclusion is not necessarily symmetric.
+	// If Tx A precludes Tx B, Tx B need not preclude Tx A.
+	//
+	// Preclusion is not necessarily transitive.
+	// If Tx A precludes Tx B, and Tx B precludes Tx C,
+	// Tx A need not preclude Tx C.
+	//
+	// In the context of a UTXO-based payments system, for example, Tx A
+	// would preclude Tx B and vice versa if Tx A and Tx B consume the same UTXO.
+	//
+	// PrecludedBy is only evaluated once, when the tx is put into consensus.
+	// Its return value should never change.
+	// If a transaction is issued after this one, and that transaction precludes
+	// this one, it should return this transaction's ID in the return value
+	// of its Precludes() method.
+	PrecludedBy() []ids.ID
 
+	// Precludes is a set where each element is the ID of a transaction
+	// that this transaction precludes.
+	Precludes() []ids.ID
+
+	// Verify that this transaction is valid
 	Verify() error
+
+	// Bytes returnes the byte representation of this transaction
 	Bytes() []byte
 }

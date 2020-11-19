@@ -15,9 +15,10 @@ type Conflicts interface {
 	// Conflicts returns true if there are no transactions currently tracked
 	IsVirtuous(tx choices.Decidable) (bool, error)
 
-	// Conflicts returns the transactions that conflict with the provided
-	// transaction
-	Conflicts(tx choices.Decidable) ([]choices.Decidable, error)
+	// PrecludedBy returns the transactions that preclude the provided
+	// transaction. That is, the transactions that, if accepted,
+	// would cause the given transaction to be eventually rejected.
+	PrecludedBy(tx choices.Decidable) ([]choices.Decidable, error)
 
 	// Mark this transaction as conditionally accepted
 	Accept(txID ids.ID)
