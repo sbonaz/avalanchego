@@ -145,13 +145,18 @@ func (dg *Directed) Conflicts(tx choices.Decidable) (ids.Set, error) {
 
 	// If the tx isn't currently processing, the conflicting txs are the
 	// union of all the txs that spend an input that this tx spends.
-	txConflicts, err := dg.conflicts.Conflicts(tx)
+	conflictTxs, err := dg.conflicts.PrecludedBy(tx)
 	if err != nil {
 		return nil, err
 	}
+	precludes, err := dg.conflicts.Precludes(tx)
+	if err != nil {
+		return nil, err
+	}
+	conflictTxs = append(conflictTxs, precludes...)
 
-	conflicts := make(ids.Set, len(txConflicts))
-	for _, conflict := range txConflicts {
+	conflicts := make(ids.Set, len(conflictTxs))
+	for _, conflict := range conflictTxs {
 		conflicts.Add(conflict.ID())
 	}
 	return conflicts, nil
@@ -177,10 +182,15 @@ func (dg *Directed) Add(tx choices.Decidable) error {
 		return nil
 	}
 
-	conflicts, err := dg.conflicts.Conflicts(tx)
+	conflicts, err := dg.conflicts.PrecludedBy(tx)
 	if err != nil {
 		return err
 	}
+	precludes, err := dg.conflicts.Precludes(tx)
+	if err != nil {
+		return err
+	}
+	conflicts = append(conflicts, precludes...)
 
 	txID := tx.ID()
 
