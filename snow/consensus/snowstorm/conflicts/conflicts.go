@@ -153,13 +153,16 @@ func (c *Conflicts) Precludes(txIntf choices.Decidable) ([]choices.Decidable, er
 		return nil, errInvalidTxType
 	}
 
-	precludes := []choices.Decidable{}
-	for precluded := range c.precludes[tx.ID()] {
+	precludedTxs := []choices.Decidable{}
+	var precludesIDs ids.Set
+	precludesIDs.Add(tx.Precludes()...)      // Txs that [tx] says it precludes
+	precludesIDs.Union(c.precludes[tx.ID()]) // Other txs we learned about later
+	for precluded := range precludesIDs {
 		if precludedTx, ok := c.txs[precluded]; ok { // ignore non-processing txs
-			precludes = append(precludes, precludedTx)
+			precludedTxs = append(precludedTxs, precludedTx)
 		}
 	}
-	return precludes, nil
+	return precludedTxs, nil
 }
 
 // Accept notifies this conflict manager that a tx has been conditionally
