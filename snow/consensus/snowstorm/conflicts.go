@@ -26,7 +26,7 @@ type Conflicts interface {
 	// Updateable returns the transactions that can be accepted and rejected.
 	// Assumes that returned transactions are accepted or rejected before the
 	// next time this function is called. Acceptable transactions must have been
-	// identified as having been confitionally accepted. If an acceptable
+	// identified as having been conditionally accepted. If an acceptable
 	// transaction was marked as having a conflict, then that conflict should be
 	// returned in the same call as the acceptable transaction was returned or
 	// in a prior call.

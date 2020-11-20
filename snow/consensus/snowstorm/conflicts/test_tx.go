@@ -11,15 +11,18 @@ import (
 // TestTx is a useful test tx
 type TestTx struct {
 	choices.TestDecidable
-	DependenciesV []Tx
-	PrecludedByV  []ids.ID
-	PrecludesV    []ids.ID
-	VerifyV       error
-	BytesV        []byte
+	DependenciesV    []Tx
+	dependenciesIDsV []ids.ID
+	PrecludedByV     []ids.ID
+	PrecludesV       []ids.ID
+	VerifyV          error
+	BytesV           []byte
 }
 
 // Dependencies implements the Tx interface
 func (t *TestTx) Dependencies() []Tx { return t.DependenciesV }
+
+func (t *TestTx) dependenciesIDs() []ids.ID { return t.dependenciesIDsV }
 
 // PrecludedBy implements the Tx interface
 func (t *TestTx) PrecludedBy() []ids.ID { return t.PrecludedByV }
