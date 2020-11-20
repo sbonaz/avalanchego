@@ -47,7 +47,7 @@ func TestPrecludedBy(t *testing.T) {
 
 	// The test flow is: add all of [txs], conditionally accept some,
 	// check that after each conditional acceptance the conflict manager
-	// correctly reports which are acceptable/rejectable, then check
+	// correctly reports which are acceptable/rejectable, then check at end
 	// that the preclusions are as expected
 	type test struct {
 		name                string

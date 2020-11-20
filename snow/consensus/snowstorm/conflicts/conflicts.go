@@ -144,6 +144,24 @@ func (c *Conflicts) PrecludedBy(txIntf choices.Decidable) ([]choices.Decidable, 
 	return precludedBy, nil
 }
 
+// Precludes returns the processing transactions that the given tx precludes.
+// That is, the transactions that, if the given tx is accepted, must
+// eventually be eventually rejected.
+func (c *Conflicts) Precludes(txIntf choices.Decidable) ([]choices.Decidable, error) {
+	tx, ok := txIntf.(Tx)
+	if !ok {
+		return nil, errInvalidTxType
+	}
+
+	precludes := []choices.Decidable{}
+	for precluded := range c.precludedBy[tx.ID()] {
+		if precludedTx, ok := c.txs[precluded]; ok { // ignore non-processing txs
+			precludes = append(precludes, precludedTx)
+		}
+	}
+	return precludes, nil
+}
+
 // Accept notifies this conflict manager that a tx has been conditionally
 // accepted. This means that, assuming all the txs this tx depends on are
 // accepted, then this tx should be accepted as well.

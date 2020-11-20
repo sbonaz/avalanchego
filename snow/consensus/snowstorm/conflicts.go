@@ -20,6 +20,11 @@ type Conflicts interface {
 	// would cause the given transaction to be eventually rejected.
 	PrecludedBy(tx choices.Decidable) ([]choices.Decidable, error)
 
+	// Precludes returns the transactions that the given tx precludes.
+	// That is, the transactions that, if the given tx is accepted,
+	// must eventually be eventually rejected.
+	Precludes(tx choices.Decidable) ([]choices.Decidable, error)
+
 	// Mark this transaction as conditionally accepted
 	Accept(txID ids.ID)
 
