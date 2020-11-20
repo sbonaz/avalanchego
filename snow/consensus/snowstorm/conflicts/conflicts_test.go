@@ -38,7 +38,8 @@ func TestInvalidTx(t *testing.T) {
 	assert.Empty(t, c.pendingAccept)
 }
 
-func TestPrecludedBy(t *testing.T) {
+// Test that PrecludedBy and Precludes work
+func TestPrecludedByPrecludes(t *testing.T) {
 	type accept struct {
 		toConditionallyAccept []ids.ID
 		expectedAccepted      []ids.ID
@@ -855,13 +856,19 @@ func TestPrecludedBy(t *testing.T) {
 				}
 
 				// Ensure that txs preclude each other correctly
-				for id, expectedPrecludedBy := range test.expectedPrecludedBy {
-					precludedBy, err := c.PrecludedBy(txIDToTxs[id])
+				for id1, expectedPrecludedBy := range test.expectedPrecludedBy {
+					precludedBy, err := c.PrecludedBy(txIDToTxs[id1])
 					assert.NoError(t, err)
 					assert.Len(t, expectedPrecludedBy, len(precludedBy))
 
-					for _, id := range expectedPrecludedBy {
-						assert.Contains(t, precludedBy, txIDToTxs[id])
+					for _, id2 := range expectedPrecludedBy {
+						assert.Contains(t, precludedBy, txIDToTxs[id2])
+
+						// If tx1 says its precluded by tx2, then tx2 should
+						// say that it precludes tx1
+						precludes, err := c.Precludes(txIDToTxs[id2])
+						assert.NoError(t, err)
+						assert.Contains(t, precludes, txIDToTxs[id1])
 					}
 				}
 			})

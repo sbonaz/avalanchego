@@ -154,7 +154,7 @@ func (c *Conflicts) Precludes(txIntf choices.Decidable) ([]choices.Decidable, er
 	}
 
 	precludes := []choices.Decidable{}
-	for precluded := range c.precludedBy[tx.ID()] {
+	for precluded := range c.precludes[tx.ID()] {
 		if precludedTx, ok := c.txs[precluded]; ok { // ignore non-processing txs
 			precludes = append(precludes, precludedTx)
 		}
