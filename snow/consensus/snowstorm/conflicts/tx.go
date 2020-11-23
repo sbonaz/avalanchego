@@ -41,7 +41,7 @@ type Tx interface {
 	// PrecludedBy is only evaluated once, when the tx is put into consensus.
 	// Its return value should never change.
 	// If a transaction is added to consensus after this one, and that
-	// transaction precludes this one, it should return this transaction's ID
+	// transaction precludes this one, it should include this transaction's ID
 	// in its Precludes() method.
 	PrecludedBy() []ids.ID
 
