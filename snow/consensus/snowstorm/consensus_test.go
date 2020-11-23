@@ -35,14 +35,14 @@ var (
 		AcceptingDependencyTest,
 		AcceptingSlowDependencyTest,
 		RejectingDependencyTest,
-		//RejectingSlowDependencyTest,
+		RejectingSlowDependencyTest,
 		InvalidAddTest,
 		InvalidConflictsTest,
 		ConflictsTest,
 		VirtuousDependsOnRogueTest,
 		ErrorOnAcceptedTest,
 		ErrorOnRejectingLowerConfidenceConflictTest,
-		//ErrorOnRejectingHigherConfidenceConflictTest,
+		ErrorOnRejectingHigherConfidenceConflictTest,
 		UTXOCleanupTest,
 	}
 
@@ -69,7 +69,7 @@ func Setup() {
 
 	//Red.InputIDsV = append(Red.InputIDsV, X)
 	Red.PrecludedByV = append(Red.PrecludedByV, Green.ID())
-	Red.PrecludesV = append(Red.PrecludedByV, Green.ID())
+	Red.PrecludesV = append(Red.PrecludesV, Green.ID())
 	// Green.InputIDsV = append(Green.InputIDsV, X)
 	// Green.InputIDsV = append(Green.InputIDsV, Y)
 	Green.PrecludedByV = append(Green.PrecludedByV, Red.ID())
@@ -1347,24 +1347,21 @@ func ErrorOnRejectingLowerConfidenceConflictTest(t *testing.T, factory Factory) 
 	}
 }
 
-/*
 func ErrorOnRejectingHigherConfidenceConflictTest(t *testing.T, factory Factory) {
 	graph := factory.New()
-
-	X := ids.Empty.Prefix(4)
-
-	purple := &conflicts.TestTx{TestDecidable: choices.TestDecidable{
-		IDV:     ids.Empty.Prefix(7),
-		StatusV: choices.Processing,
-	}}
-	purple.InputIDsV = append(purple.InputIDsV, X)
 
 	pink := &conflicts.TestTx{TestDecidable: choices.TestDecidable{
 		IDV:     ids.Empty.Prefix(8),
 		RejectV: errors.New(""),
 		StatusV: choices.Processing,
 	}}
-	pink.InputIDsV = append(pink.InputIDsV, X)
+
+	purple := &conflicts.TestTx{TestDecidable: choices.TestDecidable{
+		IDV:     ids.Empty.Prefix(7),
+		StatusV: choices.Processing,
+	}}
+	purple.PrecludedByV = append(purple.PrecludedByV, pink.IDV)
+	purple.PrecludesV = append(purple.PrecludesV, pink.IDV)
 
 	params := sbcon.Parameters{
 		Metrics:           prometheus.NewRegistry(),
@@ -1391,7 +1388,6 @@ func ErrorOnRejectingHigherConfidenceConflictTest(t *testing.T, factory Factory)
 		t.Fatalf("Should have errored on rejecting an invalid tx")
 	}
 }
-*/
 
 func UTXOCleanupTest(t *testing.T, factory Factory) {
 	graph := factory.New()
