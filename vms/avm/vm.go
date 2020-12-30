@@ -166,6 +166,7 @@ func (vm *VM) Initialize(
 	fxs []*common.Fx,
 ) error {
 	vm.ctx = ctx
+	vm.ctx.Log.Info("Epoch First Transition Time %v, Duration %v", ctx.EpochFirstTransition, ctx.EpochDuration)
 	vm.toEngine = toEngine
 	vm.baseDB = db
 	vm.db = versiondb.New(db)
