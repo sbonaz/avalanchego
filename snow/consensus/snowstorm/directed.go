@@ -319,6 +319,10 @@ func (dg *Directed) RecordPoll(votes ids.Bag) (bool, error) {
 		acceptable, rejectable := dg.conflicts.Updateable()
 		for _, toAccept := range acceptable {
 			toAcceptID := toAccept.ID()
+			_, exists := dg.txs[toAcceptID]
+			if !exists {
+				return false, fmt.Errorf("failed to find txID %s to accept.\n %s", toAcceptID, createDecidedString(acceptable, rejectable))
+			}
 
 			// We can remove the accepted tx from the graph.
 			delete(dg.txs, toAcceptID)
@@ -339,7 +343,10 @@ func (dg *Directed) RecordPoll(votes ids.Bag) (bool, error) {
 		}
 		for _, toReject := range rejectable {
 			toRejectID := toReject.ID()
-			toRejectNode := dg.txs[toRejectID]
+			toRejectNode, exists := dg.txs[toRejectID]
+			if !exists {
+				return false, fmt.Errorf("failed to find txID %s to reject.\n %s", toRejectID, createDecidedString(acceptable, rejectable))
+			}
 
 			// We can remove the rejected tx from the graph.
 			delete(dg.txs, toRejectID)
@@ -446,4 +453,17 @@ func (sb sortSnowballNodeData) Swap(i, j int) { sb[j], sb[i] = sb[i], sb[j] }
 
 func sortSnowballNodes(nodes []*snowballNode) {
 	sort.Sort(sortSnowballNodeData(nodes))
+}
+
+func createDecidedString(acceptable []conflicts.Tx, rejectable []conflicts.Tx) string {
+	sb := strings.Builder{}
+	sb.WriteString(fmt.Sprintf("Acceptable txIDs: %d\n", len(acceptable)))
+	for _, tx := range acceptable {
+		sb.WriteString(fmt.Sprintf("TxID: %s. Epoch %d. TransitionID: %s\n", tx.ID(), tx.Epoch(), tx.Transition().ID()))
+	}
+	sb.WriteString(fmt.Sprintf("Rejectable txIDs: %d\n", len(rejectable)))
+	for _, tx := range rejectable {
+		sb.WriteString(fmt.Sprintf("TxID: %s. Epoch %d. TransitionID: %s\n", tx.ID(), tx.Epoch(), tx.Transition().ID()))
+	}
+	return sb.String()
 }
