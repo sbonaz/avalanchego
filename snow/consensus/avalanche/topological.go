@@ -79,7 +79,7 @@ func (ta *Topological) Initialize(
 	ta.nodes = make(map[ids.ID]Vertex, minMapSize)
 
 	ta.cg = &snowstorm.Directed{}
-	if err := ta.cg.Initialize(ctx, conflicts.New(), params.Parameters); err != nil {
+	if err := ta.cg.Initialize(ctx, conflicts.New(ctx.Log), params.Parameters); err != nil {
 		return err
 	}
 

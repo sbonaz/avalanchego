@@ -109,7 +109,7 @@ func (dg *Directed) Preferences() ids.Set { return dg.preferences }
 // Quiesce implements the ConflictGraph interface
 func (dg *Directed) Quiesce() bool {
 	numVirtuous := dg.virtuousVoting.Len()
-	dg.ctx.Log.Verbo("Conflict graph has %d voting virtuous transactions",
+	dg.ctx.Log.Debug("Conflict graph has %d voting virtuous transactions",
 		numVirtuous)
 	return numVirtuous == 0
 }
@@ -117,7 +117,7 @@ func (dg *Directed) Quiesce() bool {
 // Finalized implements the ConflictGraph interface
 func (dg *Directed) Finalized() bool {
 	numPreferences := dg.preferences.Len()
-	dg.ctx.Log.Verbo("Conflict graph has %d preferred transactions",
+	dg.ctx.Log.Debug("Conflict graph has %d preferred transactions",
 		numPreferences)
 	return numPreferences == 0
 }

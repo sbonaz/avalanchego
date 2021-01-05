@@ -13,7 +13,7 @@ import (
 )
 
 func TestProcessing(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	tx := &TestTx{
 		TestDecidable: choices.TestDecidable{
@@ -37,7 +37,7 @@ func TestProcessing(t *testing.T) {
 }
 
 func TestNoConflicts(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	tx := &TestTx{
 		TestDecidable: choices.TestDecidable{
@@ -59,7 +59,7 @@ func TestNoConflicts(t *testing.T) {
 }
 
 func TestInputConflicts(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	inputIDs := []ids.ID{ids.GenerateTestID()}
 	tx0 := &TestTx{
@@ -97,7 +97,7 @@ func TestInputConflicts(t *testing.T) {
 }
 
 func TestOuterRestrictionConflicts(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	transitionID := ids.GenerateTestID()
 	tx0 := &TestTx{
@@ -135,7 +135,7 @@ func TestOuterRestrictionConflicts(t *testing.T) {
 }
 
 func TestInnerRestrictionConflicts(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	transitionID := ids.GenerateTestID()
 	tx0 := &TestTx{
@@ -173,7 +173,7 @@ func TestInnerRestrictionConflicts(t *testing.T) {
 }
 
 func TestAcceptNoConflicts(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	tx := &TestTx{
 		TestDecidable: choices.TestDecidable{
@@ -211,7 +211,7 @@ func TestAcceptNoConflicts(t *testing.T) {
 }
 
 func TestAcceptNoConflictsWithDependency(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	transitionID := ids.GenerateTestID()
 	tr0 := &TestTransition{
@@ -283,7 +283,7 @@ func TestAcceptNoConflictsWithDependency(t *testing.T) {
 }
 
 func TestNoConflictsNoEarlyAcceptDependency(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	tr0 := &TestTransition{
 		IDV:     ids.GenerateTestID(),
@@ -354,7 +354,7 @@ func TestNoConflictsNoEarlyAcceptDependency(t *testing.T) {
 }
 
 func TestAcceptNoConflictsWithDependenciesAcrossMultipleRounds(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	tr0 := &TestTransition{
 		IDV:     ids.GenerateTestID(),
@@ -476,7 +476,7 @@ func TestAcceptNoConflictsWithDependenciesAcrossMultipleRounds(t *testing.T) {
 }
 
 func TestAcceptRejectedDependency(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	inputIDs := []ids.ID{ids.GenerateTestID()}
 	tr0 := &TestTransition{
@@ -561,7 +561,7 @@ func TestAcceptRejectedDependency(t *testing.T) {
 }
 
 func TestAcceptRejectedEpochDependency(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	inputIDs := []ids.ID{ids.GenerateTestID()}
 	tr := &TestTransition{
@@ -632,7 +632,7 @@ func TestAcceptRejectedEpochDependency(t *testing.T) {
 }
 
 func TestAcceptRestrictedDependency(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	inputIDs := []ids.ID{ids.GenerateTestID()}
 	trA := &TestTransition{
@@ -782,7 +782,7 @@ func TestAcceptRestrictedDependency(t *testing.T) {
 }
 
 func TestRejectedRejectedDependency(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	inputIDA := ids.GenerateTestID()
 	inputIDB := ids.GenerateTestID()
@@ -896,7 +896,7 @@ func TestRejectedRejectedDependency(t *testing.T) {
 }
 
 func TestAcceptVirtuousRejectedDependency(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	inputIDsA := []ids.ID{ids.GenerateTestID()}
 	inputIDsB := []ids.ID{ids.GenerateTestID()}
@@ -1016,7 +1016,7 @@ func TestAcceptVirtuousRejectedDependency(t *testing.T) {
 }
 
 func TestRejectDependencyTwice(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	trA := &TestTransition{
 		IDV:       ids.GenerateTestID(),
@@ -1199,7 +1199,7 @@ func TestRejectDependencyTwice(t *testing.T) {
 }
 
 func TestRejectTwiceAcrossRounds(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	conflictInput := ids.GenerateTestID()
 
@@ -1309,7 +1309,7 @@ func TestRejectTwiceAcrossRounds(t *testing.T) {
 }
 
 func TestRejectTwiceAcrossRoundsEpochs(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	conflictInput := ids.GenerateTestID()
 
@@ -1435,7 +1435,7 @@ func TestRejectTwiceAcrossRoundsEpochs(t *testing.T) {
 }
 
 func TestAcceptRejectedMultipleEpochDependency(t *testing.T) {
-	c := New()
+	c := New(logging.NoLog{})
 
 	inputIDs := []ids.ID{ids.GenerateTestID()}
 	tr := &TestTransition{

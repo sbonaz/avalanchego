@@ -7,6 +7,7 @@ import (
 	"math"
 
 	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/logging"
 )
 
 // transitionNode contains data about a processing transition
@@ -61,11 +62,14 @@ type Conflicts struct {
 
 	// rejectable is the set of txs that may be rejected.
 	rejectable []Tx
+
+	log logging.Logger
 }
 
 // New returns a new Conflict Manager
-func New() *Conflicts {
+func New(log logging.Logger) *Conflicts {
 	return &Conflicts{
+		log:             log,
 		txs:             make(map[ids.ID]Tx),
 		utxos:           make(map[ids.ID]ids.Set),
 		transitionNodes: make(map[ids.ID]transitionNode),
@@ -267,6 +271,18 @@ func (c *Conflicts) Updateable() ([]Tx, []Tx) {
 
 	c.acceptableIDs.Clear()
 	c.rejectableIDs.Clear()
+	for transitionID, tn := range c.transitionNodes {
+		c.log.Debug("Transition %s still in map, spent by %d transactions, has %d dependents, %d missing dependencies, and %d restrictions", transitionID, tn.txIDs.Len(), tn.dependents.Len(), tn.missingDependencies.Len(), tn.restrictions.Len())
+	}
+	for _, toAccept := range acceptable {
+		if conflicts := c.Conflicts(toAccept); len(conflicts) != 0 {
+			c.log.Error("acceptable transaction has %d conflicts:", len(conflicts))
+			for _, conflict := range conflicts {
+				c.log.Debug("TxID: %s, TrID: %s", conflict.ID(), conflict.Transition().ID())
+			}
+
+		}
+	}
 	return acceptable, rejectable
 }
 

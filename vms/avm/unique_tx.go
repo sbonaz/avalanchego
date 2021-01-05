@@ -211,7 +211,8 @@ func (tx *UniqueTx) Accept(epoch uint32) error {
 
 // Reject is called when the transaction was rejected by consensus in the
 // provided epoch
-func (tx *UniqueTx) Reject(uint32) error {
+func (tx *UniqueTx) Reject(epoch uint32) error {
+	tx.vm.ctx.Log.Debug("Rejecting tx %s in epoch %d", tx.txID, epoch)
 	tx.deps = nil // Needed to prevent a memory leak
 	tx.setDeps = false
 	return nil
@@ -330,6 +331,7 @@ func (tx *UniqueTx) verifyWithoutCacheWrites(epoch uint32) error {
 
 // Verify the validity of this transaction
 func (tx *UniqueTx) Verify(epoch uint32) error {
+	tx.vm.ctx.Log.Debug("Verifying tx %s in epoch %d", tx.txID, epoch)
 	if err := tx.verifyWithoutCacheWrites(epoch); err != nil {
 		return err
 	}
