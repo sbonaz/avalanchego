@@ -249,9 +249,11 @@ func (c *Conflicts) Accept(txID ids.ID) {
 		}
 	}
 	if acceptable {
+		c.log.Debug("adding tx %s (tr %s) to c.acceptable", txID, trID) // TODO remove
 		c.acceptableIDs.Add(trID)
 		c.acceptable = append(c.acceptable, tx)
 	} else {
+		c.log.Debug("adding tx %s (tr %s) to c.conditionallyAccepted", txID, trID) // TODO remove
 		c.conditionallyAccepted.Add(txID)
 	}
 }
@@ -382,6 +384,7 @@ outerLoop:
 		// If [dependentTx] requires [tx]'s transition to happen before [epoch],
 		// then [dependent] can no longer be accepted.
 		if dependentEpoch < epoch {
+			c.log.Debug("adding tx %s to c.rejectable due to epoch %d < %d", dependentTxID, dependentEpoch, epoch) // TODO remove
 			c.rejectableIDs.Add(dependentTxID)
 			c.rejectable = append(c.rejectable, dependentTx)
 			continue
@@ -403,6 +406,7 @@ outerLoop:
 
 		// [dependentTx] has been conditionally accepted and its transition
 		// dependencies have been met.
+		c.log.Debug("adding tx %s (tr %s) to c.acceptable", dependentTxID, dependentTransitionID) // TODO remove
 		c.conditionallyAccepted.Remove(dependentTxID)
 		c.acceptableIDs.Add(dependentTransitionID)
 		c.acceptable = append(c.acceptable, dependentTx)
@@ -419,6 +423,7 @@ func (c *Conflicts) rejectConflicts(tx Tx) {
 	conflictTxs := c.Conflicts(tx)
 	for _, conflictTx := range conflictTxs {
 		if conflictTxID := conflictTx.ID(); !c.rejectableIDs.Contains(conflictTxID) {
+			c.log.Debug("adding tx %s to c.rejectable due to acceptance of conflict %s", conflictTxID, tx.ID()) // TODO remove
 			c.rejectableIDs.Add(conflictTxID)
 			c.rejectable = append(c.rejectable, conflictTx)
 		}
@@ -488,6 +493,7 @@ func (c *Conflicts) rejectInvalidDependents(tn *transitionNode) {
 		dependentTx := c.txs[dependentTxID]
 		dependentEpoch := dependentTx.Epoch()
 		if dependentEpoch < lowestRemainingEpoch && !c.rejectableIDs.Contains(dependentTxID) {
+			c.log.Debug("adding tx %s to c.rejectable", dependentTxID) // TODO remove
 			c.rejectableIDs.Add(dependentTxID)
 			c.rejectable = append(c.rejectable, dependentTx)
 		}
