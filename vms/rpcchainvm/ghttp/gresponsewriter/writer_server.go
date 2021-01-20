@@ -6,6 +6,7 @@ package gresponsewriter
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"google.golang.org/grpc"
@@ -46,6 +47,7 @@ func (s *Server) Write(ctx context.Context, req *gresponsewriterproto.WriteReque
 		headers[header.Key] = header.Values
 	}
 
+	fmt.Println("writer server request payload:", string(req.Payload))
 	n, err := s.writer.Write(req.Payload)
 	if err != nil {
 		return nil, err
