@@ -48,6 +48,9 @@ func (s *Server) Write(ctx context.Context, req *gresponsewriterproto.WriteReque
 	}
 
 	fmt.Println("writer server request payload:", string(req.Payload))
+	if s.writer == nil {
+		panic("writer is nil")
+	}
 	n, err := s.writer.Write(req.Payload)
 	if err != nil {
 		return nil, err
@@ -90,6 +93,8 @@ func (s *Server) Hijack(ctx context.Context, req *gresponsewriterproto.HijackReq
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("connection hijacked")
 
 	connID := s.broker.NextId()
 	readerID := s.broker.NextId()
