@@ -153,5 +153,8 @@ func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: is there a better way to handle this error?
-	_, _ = c.client.Handle(r.Context(), req)
+	_, err := c.client.Handle(r.Context(), req)
+	if err != nil {
+		panic(err)
+	}
 }
