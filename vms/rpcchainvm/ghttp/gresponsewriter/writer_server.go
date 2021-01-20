@@ -13,6 +13,7 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 
+	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/vms/rpcchainvm/ghttp/gconn"
 	"github.com/ava-labs/avalanchego/vms/rpcchainvm/ghttp/gconn/gconnproto"
 	"github.com/ava-labs/avalanchego/vms/rpcchainvm/ghttp/greader"
@@ -39,6 +40,13 @@ func NewServer(writer http.ResponseWriter, broker *plugin.GRPCBroker) *Server {
 
 // Write ...
 func (s *Server) Write(ctx context.Context, req *gresponsewriterproto.WriteRequest) (*gresponsewriterproto.WriteResponse, error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			fmt.Printf("Panicing due to:\n%s\nFrom:\n%s", rec, logging.Stacktrace{})
+			fmt.Printf("req: %+v, server: %+v\n", req, s)
+			panic(rec)
+		}
+	}()
 	headers := s.writer.Header()
 	for key := range headers {
 		delete(headers, key)
