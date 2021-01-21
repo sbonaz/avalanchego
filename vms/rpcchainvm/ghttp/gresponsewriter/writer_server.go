@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 
 	"google.golang.org/grpc"
 
@@ -28,13 +29,18 @@ import (
 type Server struct {
 	writer http.ResponseWriter
 	broker *plugin.GRPCBroker
+
+	writeMutex *sync.Mutex
+	closed     *bool
 }
 
 // NewServer returns a http.Handler instance manage remotely
-func NewServer(writer http.ResponseWriter, broker *plugin.GRPCBroker) *Server {
+func NewServer(m *sync.Mutex, c *bool, writer http.ResponseWriter, broker *plugin.GRPCBroker) *Server {
 	return &Server{
-		writer: writer,
-		broker: broker,
+		writeMutex: m,
+		closed:     c,
+		writer:     writer,
+		broker:     broker,
 	}
 }
 
@@ -55,13 +61,17 @@ func (s *Server) Write(ctx context.Context, req *gresponsewriterproto.WriteReque
 		headers[header.Key] = header.Values
 	}
 
-	fmt.Println("writer server request payload:", string(req.Payload))
-	if s.writer == nil {
-		panic("writer is nil")
+	s.writeMutex.Lock()
+	defer s.writeMutex.Unlock()
+	if *s.closed {
+		panic("response is closed before")
 	}
 	n, err := s.writer.Write(req.Payload)
 	if err != nil {
 		return nil, err
+	}
+	if *s.closed {
+		panic("response is closed after")
 	}
 	return &gresponsewriterproto.WriteResponse{
 		Written: int32(n),

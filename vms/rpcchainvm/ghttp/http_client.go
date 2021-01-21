@@ -5,6 +5,7 @@ package ghttp
 
 import (
 	"net/http"
+	"sync"
 
 	"google.golang.org/grpc"
 
@@ -35,7 +36,14 @@ func NewClient(client ghttpproto.HTTPClient, broker *plugin.GRPCBroker) *Client 
 // Handle ...
 func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	closer := grpcutils.ServerCloser{}
-	defer closer.Stop()
+	closed := new(bool)
+	writeMutex := &sync.Mutex{}
+	defer func() {
+		*closed = true
+		writeMutex.Lock()
+		defer writeMutex.Unlock()
+		closer.Stop()
+	}()
 
 	readerID := c.broker.NextId()
 	go c.broker.AcceptAndServe(readerID, func(opts []grpc.ServerOption) *grpc.Server {
@@ -49,7 +57,7 @@ func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go c.broker.AcceptAndServe(writerID, func(opts []grpc.ServerOption) *grpc.Server {
 		writer := grpc.NewServer(opts...)
 		closer.Add(writer)
-		gresponsewriterproto.RegisterWriterServer(writer, gresponsewriter.NewServer(w, c.broker))
+		gresponsewriterproto.RegisterWriterServer(writer, gresponsewriter.NewServer(writeMutex, closed, w, c.broker))
 
 		return writer
 	})
