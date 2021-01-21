@@ -39,9 +39,9 @@ func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	closed := new(bool)
 	writeMutex := &sync.Mutex{}
 	defer func() {
-		*closed = true
 		writeMutex.Lock()
 		defer writeMutex.Unlock()
+		*closed = true
 		closer.Stop()
 	}()
 
