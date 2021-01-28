@@ -185,9 +185,7 @@ func (p *peer) ReadMessages() {
 			return
 		}
 
-		p.net.log.Verbo("parsing new message from %s:\n%s",
-			p.id,
-			formatting.DumpBytes{Bytes: msgBytes})
+		p.net.log.Verbo("parsing new message from %s:\n", p.id)
 
 		msg, err := p.net.b.Parse(msgBytes)
 		if err != nil {
@@ -209,9 +207,7 @@ func (p *peer) WriteMessages() {
 	p.Version()
 
 	for msg := range p.sender {
-		p.net.log.Verbo("sending new message to %s:\n%s",
-			p.id,
-			formatting.DumpBytes{Bytes: msg})
+		p.net.log.Verbo("sending new message to %s:\n", p.id)
 
 		atomic.AddInt64(&p.pendingBytes, -int64(len(msg)))
 		atomic.AddInt64(&p.net.pendingBytes, -int64(len(msg)))

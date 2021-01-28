@@ -605,12 +605,20 @@ func (n *network) PullQuery(validatorIDs ids.ShortSet, chainID ids.ID, requestID
 	for _, peerElement := range n.getPeers(validatorIDs) {
 		peer := peerElement.peer
 		vID := peerElement.id
-		if peer == nil || !peer.connected.GetValue() || !peer.Send(msg) {
-			n.log.Debug("failed to send PullQuery(%s, %s, %d, %s)",
+		peerNilness := peer == nil
+		var peerConnected bool
+		if !peerNilness {
+			peerConnected = peer.connected.GetValue()
+		}
+		if peerNilness || !peerConnected || !peer.Send(msg) {
+			n.log.Debug("failed to send PullQuery(%s, %s, %d, %s) peer nil: %t peer connected: %t",
 				vID,
 				chainID,
 				requestID,
-				containerID)
+				containerID,
+				peerNilness,
+				peerConnected,
+			)
 			n.executor.Add(func() { n.router.QueryFailed(vID, chainID, requestID) })
 			n.pullQuery.numFailed.Inc()
 		} else {

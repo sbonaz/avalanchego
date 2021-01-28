@@ -145,6 +145,10 @@ func (b *queryBenchlist) QueryFailed(validatorID ids.ShortID, requestID uint32) 
 		return
 	}
 
+	if b.benchlistSet.Contains(validatorID) {
+		b.ctx.Log.Verbo("increasing consecutive failures on benched validator %s\n", validatorID)
+	}
+
 	// Track the message failure and bench [validatorID] if it has
 	// surpassed the threshold
 	currentTime := b.clock.Time()
@@ -269,6 +273,10 @@ func (b *queryBenchlist) cleanup() {
 		b.benchlistOrder.Remove(e)
 		delete(b.benchlistTimes, validatorID)
 		b.benchlistSet.Remove(validatorID)
+
+		if count, ok := b.consecutiveFailures[validatorID]; ok {
+			b.ctx.Log.Verbo("validator %s has %d consecutive failures when unbenched\n", validatorID, count.consecutive)
+		}
 	}
 
 	updatedBenchLen := b.benchlistSet.Len()
