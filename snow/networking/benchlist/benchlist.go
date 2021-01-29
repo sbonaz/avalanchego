@@ -275,7 +275,7 @@ func (b *queryBenchlist) cleanup() {
 		b.benchlistSet.Remove(validatorID)
 
 		if count, ok := b.consecutiveFailures[validatorID]; ok {
-			b.ctx.Log.Verbo("validator %s has %d consecutive failures when unbenched\n", validatorID, count.consecutive)
+			b.ctx.Log.Verbo("validator %s has %d consecutive failures since %s when unbenched\n", validatorID, count.consecutive, time.Since(count.firstFailure))
 		}
 	}
 

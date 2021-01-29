@@ -556,13 +556,25 @@ func (p *peer) version(msg Msg) {
 				p.setIP(peerIP)
 			}
 		}
+	} else {
+		// check if IP we have matches conn (seems like this could only happen on
+		// other side not by our connection going down)
+		addr := p.conn.RemoteAddr()
+		localPeerIP, err := utils.ToIPDesc(addr.String())
+		if err == nil {
+			if !ip.Equal(localPeerIP) {
+				p.net.log.Fatal("peer ip %s does not match remote ip %s", ip.String(), addr.String())
+			}
+		} else {
+			p.net.log.Fatal("remote addr %s cannot be transformed into ipdesc: %s", addr.String(), err.Error())
+		}
 	}
 
 	p.SendPeerList()
 
 	p.versionStruct.SetValue(peerVersion)
 	p.versionStr.SetValue(peerVersion.String())
-	p.gotVersion.SetValue(true)
+	p.gotVersion.SetValue(true) // won't mark got version if self and won't track if matches own IP
 
 	p.tryMarkConnected()
 }
@@ -582,8 +594,9 @@ func (p *peer) peerList(msg Msg) {
 	p.tryMarkConnected()
 
 	for _, ip := range ips {
+		p.net.log.Verbo("got peer ip: %s\n", ip.String())
 		p.net.stateLock.Lock()
-		if !ip.Equal(p.net.ip.IP()) &&
+		if !ip.Equal(p.net.ip.IP()) && // check that not equal to myIps in track
 			!ip.IsZero() &&
 			(p.net.allowPrivateIPs || !ip.IsPrivate()) {
 			// TODO: only try to connect once
@@ -817,6 +830,8 @@ func (p *peer) discardMyIP() {
 		p.net.myIPs[str] = struct{}{}
 		delete(p.net.disconnectedIPs, str)
 		p.net.stateLock.Unlock()
+
+		p.net.log.Verbo("added %s to my IPs\n", str)
 	}
 	p.Close()
 }

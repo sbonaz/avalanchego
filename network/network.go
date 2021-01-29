@@ -682,6 +682,12 @@ func (n *network) GetHeartbeat() int64 { return atomic.LoadInt64(&n.lastHeartbea
 // to this node.
 // assumes the stateLock is not held.
 func (n *network) Dispatch() error {
+	go func() {
+		for !n.closed.GetValue() {
+			time.Sleep(10 * time.Second)
+			n.log.Verbo("my ips: %+v\n", n.myIPs)
+		}
+	}()
 	go n.gossip() // Periodically gossip peers
 	go func() {
 		duration := time.Until(n.apricotPhase0Time)
