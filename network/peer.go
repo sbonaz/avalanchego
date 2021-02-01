@@ -552,6 +552,7 @@ func (p *peer) version(msg Msg) {
 
 		addr := p.conn.RemoteAddr()
 		localPeerIP, err := utils.ToIPDesc(addr.String())
+		p.net.log.Info("Setting IP for peer %s, peerIP: %s, localPeerIP: %s", p.id, peerIP, localPeerIP)
 		if err == nil {
 			// If we have no clue what the peer's IP is, we can't perform any
 			// verification
@@ -590,8 +591,7 @@ func (p *peer) peerList(msg Msg) {
 		if !ip.Equal(p.net.ip.IP()) &&
 			!ip.IsZero() &&
 			(p.net.allowPrivateIPs || !ip.IsPrivate()) {
-			// TODO: only try to connect once
-			p.net.track(ip)
+			p.net.connectOnce(ip)
 		}
 		p.net.stateLock.Unlock()
 	}
