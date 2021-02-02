@@ -63,6 +63,41 @@ func (service *Service) GetHeight(r *http.Request, args *struct{}, response *Get
 	return nil
 }
 
+type GetBlockRequest struct {
+	Height json.Uint64 `json:"height"`
+}
+
+type GetBlockReply struct {
+	Timestamp json.Uint64 `json:"timestamp"`
+	Block     string      `json:"block"`
+}
+
+func (service *Service) GetBlock(r *http.Request, args *GetBlockRequest, reply *GetBlockReply) error {
+	service.vm.SnowmanVM.Ctx.Log.Info("Platform: GetBlock called")
+
+	id, err := service.vm.getIndex(service.vm.DB, uint64(args.Height))
+	if err != nil {
+		return fmt.Errorf("unable to get index: %w", err)
+	}
+
+	b, err := service.vm.getBlock(id)
+	if err != nil {
+		return fmt.Errorf("unable to get block: %w", err)
+	}
+
+	t, err := service.vm.getBlockTimestamp(service.vm.DB, b.ID())
+	if err != nil {
+		return fmt.Errorf("unabel to get block timestamp: %w", err)
+	}
+
+	reply.Timestamp = json.Uint64(t.Unix())
+
+	popB, _ := Codec.Marshal(codecVersion, &b)
+	reply.Block, _ = formatting.Encode(formatting.CB58, popB)
+
+	return nil
+}
+
 // ExportKeyArgs are arguments for ExportKey
 type ExportKeyArgs struct {
 	api.UserPass

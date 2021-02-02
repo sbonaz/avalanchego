@@ -36,6 +36,40 @@ var (
 	errNoValidators = errors.New("there are no validators")
 )
 
+func (vm *VM) blockTimestamp(db database.Database, id ids.ID, t time.Time) error {
+	return vm.State.PutTime(db, id, t)
+}
+
+func (vm *VM) getBlockTimestamp(db database.Database, id ids.ID) (time.Time, error) {
+	return vm.State.GetTime(db, id)
+}
+
+func i64tob(val uint64) []byte {
+	r := make([]byte, 8)
+	for i := uint64(0); i < 8; i++ {
+		r[i] = byte((val >> (i * 8)) & 0xff)
+	}
+	return r
+}
+
+func btoi64(val []byte) uint64 {
+	r := uint64(0)
+	for i := uint64(0); i < 8; i++ {
+		r |= uint64(val[i]) << (8 * i)
+	}
+	return r
+}
+
+func (vm *VM) setIndex(db database.Database, height uint64, id ids.ID) error {
+	v, _ := ids.ToID(i64tob(height))
+	return vm.State.PutID(db, v, id)
+}
+
+func (vm *VM) getIndex(db database.Database, height uint64) (ids.ID, error) {
+	v, _ := ids.ToID(i64tob(height))
+	return vm.State.GetID(db, v)
+}
+
 // persist a tx
 func (vm *VM) putTx(db database.Database, id ids.ID, tx []byte) error {
 	return vm.State.Put(db, txTypeID, id, tx)

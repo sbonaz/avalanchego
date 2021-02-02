@@ -93,6 +93,12 @@ func (ab *AtomicBlock) Verify() error {
 		return fmt.Errorf("failed to put status of tx %s: %w", tx.ID(), err)
 	}
 
+	curr, _ := ab.vm.getTimestamp(ab.onAcceptDB)
+	ab.vm.Ctx.Log.Info("set time %s for %d", curr.Unix(), ab.Height())
+
+	ab.vm.blockTimestamp(ab.onAcceptDB, ab.ID(), curr)
+	ab.vm.setIndex(ab.onAcceptDB, ab.Height(), ab.ID())
+
 	ab.vm.currentBlocks[ab.ID()] = ab
 	ab.parentBlock().addChild(ab)
 	return nil
