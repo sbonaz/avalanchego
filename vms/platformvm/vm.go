@@ -30,6 +30,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/timer"
 	"github.com/ava-labs/avalanchego/utils/units"
 	"github.com/ava-labs/avalanchego/utils/wrappers"
+	"github.com/ava-labs/avalanchego/vms/components/archive"
 	"github.com/ava-labs/avalanchego/vms/components/avax"
 	"github.com/ava-labs/avalanchego/vms/components/core"
 	"github.com/ava-labs/avalanchego/vms/components/state"
@@ -95,6 +96,8 @@ var (
 // VM implements the snowman.ChainVM interface
 type VM struct {
 	*core.SnowmanVM
+
+	archive.Archive
 
 	// Node's validator manager
 	// Maps Subnets --> validators of the Subnet
@@ -185,6 +188,17 @@ func (vm *VM) Initialize(
 		return err
 	}
 	vm.fx = &secp256k1fx.Fx{}
+
+	// TODO: if !indexing_enabled, pass no op interface that matches state OR
+	// just have `indexer setters/getters` return err using same state (probably
+	// want to do some prefixing though)
+	// TODO: use a prefix for all data in archive (on top of version db to
+	// prevent collisions)
+	a, err := archive.NewArchive()
+	if err != nil {
+		return err
+	}
+	vm.Archive = a
 
 	vm.codec = Codec
 	vm.codecRegistry = linearcodec.NewDefault()

@@ -5,6 +5,7 @@ package ids
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -41,6 +42,13 @@ func FromString(idStr string) (ID, error) {
 	if err != nil {
 		return ID{}, err
 	}
+	return ToID(bytes)
+}
+
+// FromUint64 attempts to convert a uint64 into an id
+func FromUint64(idUint64 uint64) (ID, error) {
+	bytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bytes, uint64(idUint64))
 	return ToID(bytes)
 }
 
@@ -123,6 +131,13 @@ func (id ID) String() string {
 	// can be stringified is at least the length of an ID
 	s, _ := formatting.Encode(defaultEncoding, id[:])
 	return s
+}
+
+// Uint64 returns a uint64 representation of this id.
+func (id ID) Uint64() uint64 {
+	// TODO: check if what happens if we provide
+	// an id with length greater than 8 bytes
+	return binary.LittleEndian.Uint64(id[:])
 }
 
 type sortIDData []ID

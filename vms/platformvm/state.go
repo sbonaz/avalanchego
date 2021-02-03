@@ -36,38 +36,69 @@ var (
 	errNoValidators = errors.New("there are no validators")
 )
 
-func (vm *VM) blockTimestamp(db database.Database, id ids.ID, t time.Time) error {
-	return vm.State.PutTime(db, id, t)
+func (vm *VM) setBlockTimestamp(db database.Database, id ids.ID, t time.Time) error {
+	// TODO: can probably do wrapping here if indexing is enabled instead of
+	// creating db with archive (especially if we don't need any functions not on
+	// state).
+
+	// TODO: could hide db corruption errors
+	db = vm.Archive.ArchiveDB(db)
+	defer db.Close()
+
+	return vm.Archive.PutTime(db, id, t)
 }
 
 func (vm *VM) getBlockTimestamp(db database.Database, id ids.ID) (time.Time, error) {
-	return vm.State.GetTime(db, id)
+	// TODO: could hide db corruption errors
+	db = vm.Archive.ArchiveDB(db)
+	defer db.Close()
+
+	return vm.Archive.GetTime(db, id)
 }
 
-func i64tob(val uint64) []byte {
-	r := make([]byte, 8)
-	for i := uint64(0); i < 8; i++ {
-		r[i] = byte((val >> (i * 8)) & 0xff)
+func (vm *VM) setBlockHeight(db database.Database, height uint64, id ids.ID) error {
+	key, err := ids.FromUint64(height)
+	if err != nil {
+		return err
 	}
-	return r
+
+	// TODO: could hide db corruption errors
+	db = vm.Archive.ArchiveDB(db)
+	defer db.Close()
+
+	return vm.Archive.PutID(db, key, id)
 }
 
-func btoi64(val []byte) uint64 {
-	r := uint64(0)
-	for i := uint64(0); i < 8; i++ {
-		r |= uint64(val[i]) << (8 * i)
+func (vm *VM) getBlockHeight(db database.Database, height uint64) (ids.ID, error) {
+	key, err := ids.FromUint64(height)
+	if err != nil {
+		return ids.ID{}, err
 	}
-	return r
+
+	// TODO: could hide db corruption errors
+	db = vm.Archive.ArchiveDB(db)
+	defer db.Close()
+
+	return vm.Archive.GetID(db, key)
 }
 
-func (vm *VM) setIndex(db database.Database, height uint64, id ids.ID) error {
-	v, _ := ids.ToID(i64tob(height))
-	return vm.State.PutID(db, v, id)
-}
+func (vm *VM) archiveBlock(db database.Database, block snowman.Block) error {
 
-func (vm *VM) getIndex(db database.Database, height uint64) (ids.ID, error) {
-	v, _ := ids.ToID(i64tob(height))
-	return vm.State.GetID(db, v)
+	// TODO: handle time increment on proposal block of advance time tx
+	currentTime, err := vm.getTimestamp(db)
+	if err != nil {
+		return fmt.Errorf("unable to get current time: %w", err)
+	}
+
+	if err := vm.setBlockTimestamp(db, block.ID(), currentTime); err != nil {
+		return fmt.Errorf("unable to set block timestamp: %w", err)
+	}
+
+	if err := vm.setBlockHeight(db, block.Height(), block.ID()); err != nil {
+		return fmt.Errorf("unable to set block index: %w", err)
+	}
+
+	return nil
 }
 
 // persist a tx

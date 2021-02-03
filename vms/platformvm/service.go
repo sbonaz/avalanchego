@@ -65,17 +65,21 @@ func (service *Service) GetHeight(r *http.Request, args *struct{}, response *Get
 
 type GetBlockRequest struct {
 	Height json.Uint64 `json:"height"`
+	// TODO: support lookup by hash
 }
 
 type GetBlockReply struct {
-	Timestamp json.Uint64 `json:"timestamp"`
-	Block     string      `json:"block"`
+	// TODO: change to Indexer
+	Metadata struct {
+		Timestamp json.Uint64 `json:"timestamp"`
+	} `json:"metadata"`
+	Block string `json:"block"`
 }
 
 func (service *Service) GetBlock(r *http.Request, args *GetBlockRequest, reply *GetBlockReply) error {
 	service.vm.SnowmanVM.Ctx.Log.Info("Platform: GetBlock called")
 
-	id, err := service.vm.getIndex(service.vm.DB, uint64(args.Height))
+	id, err := service.vm.getBlockHeight(service.vm.DB, uint64(args.Height))
 	if err != nil {
 		return fmt.Errorf("unable to get index: %w", err)
 	}
@@ -90,11 +94,17 @@ func (service *Service) GetBlock(r *http.Request, args *GetBlockRequest, reply *
 		return fmt.Errorf("unabel to get block timestamp: %w", err)
 	}
 
-	reply.Timestamp = json.Uint64(t.Unix())
+	marshaledBlock, err := Codec.Marshal(codecVersion, &b)
+	if err != nil {
+		return fmt.Errorf("unable to marshal block: %w", err)
+	}
 
-	popB, _ := Codec.Marshal(codecVersion, &b)
-	reply.Block, _ = formatting.Encode(formatting.CB58, popB)
+	reply.Block, err = formatting.Encode(formatting.CB58, marshaledBlock)
+	if err != nil {
+		return fmt.Errorf("unable to encode block: %w", err)
+	}
 
+	reply.Metadata.Timestamp = json.Uint64(t.Unix())
 	return nil
 }
 
