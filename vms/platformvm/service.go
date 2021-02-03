@@ -299,6 +299,11 @@ type GetBalanceResponse struct {
 	LockedStakeable    json.Uint64    `json:"lockedStakeable"`
 	LockedNotStakeable json.Uint64    `json:"lockedNotStakeable"`
 	UTXOIDs            []*avax.UTXOID `json:"utxoIDs"`
+
+	Block struct {
+		Height json.Uint64
+		Hash   ids.ID
+	}
 }
 
 // GetBalance gets the balance of an address
@@ -391,6 +396,13 @@ utxoFor:
 	response.Unlocked = json.Uint64(unlocked)
 	response.LockedStakeable = json.Uint64(lockedStakeable)
 	response.LockedNotStakeable = json.Uint64(lockedNotStakeable)
+
+	response.Block.Hash = service.vm.Preferred()
+	height, err := service.vm.preferredHeight()
+	if err != nil {
+		return fmt.Errorf("unable to get preferred height: %w", err)
+	}
+	response.Block.Height = json.Uint64(height)
 	return nil
 }
 
