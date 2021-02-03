@@ -72,6 +72,11 @@ type GetBlockResponse struct {
 	// TODO: change to Indexer
 	Metadata struct {
 		Timestamp json.Uint64 `json:"timestamp"`
+
+		// make by transaction
+		RewardTx    ids.ID   `json:"reward_tx"`
+		RefundUTXOs []string `json:"refund_utxos"`
+		RewardUTXOs []string `json:"reward_utxos"`
 	} `json:"metadata"`
 	Block string `json:"block"`
 }
@@ -105,6 +110,54 @@ func (service *Service) GetBlock(r *http.Request, args *GetBlockRequest, reply *
 	}
 
 	reply.Metadata.Timestamp = json.Uint64(t.Unix())
+
+	switch block := b.(type) {
+	case *ProposalBlock:
+		switch castTx := block.Tx.UnsignedTx.(type) {
+		case *UnsignedRewardValidatorTx:
+			txID := castTx.TxID
+			reply.Metadata.RewardTx = txID
+			refundUtxos, err := service.vm.getMarkedUTXOs(service.vm.DB, "refund", txID)
+			if err != nil {
+				return fmt.Errorf("unable to get refund UTXOs: %w", err)
+			}
+
+			for _, utxo := range refundUtxos {
+				b, err := service.vm.codec.Marshal(codecVersion, utxo)
+				if err != nil {
+					return fmt.Errorf("unable to marshal UTXO: %w", err)
+				}
+
+				bs, err := formatting.Encode(formatting.CB58, b)
+				if err != nil {
+					return fmt.Errorf("unable to format UTXO: %w", err)
+				}
+
+				reply.Metadata.RefundUTXOs = append(reply.Metadata.RefundUTXOs, bs)
+			}
+
+			// TODO: unify handling
+			rewardUtxos, err := service.vm.getMarkedUTXOs(service.vm.DB, "reward", txID)
+			if err != nil {
+				return fmt.Errorf("unable to get reward UTXOs: %w", err)
+			}
+
+			for _, utxo := range rewardUtxos {
+				b, err := service.vm.codec.Marshal(codecVersion, utxo)
+				if err != nil {
+					return fmt.Errorf("unable to marshal UTXO: %w", err)
+				}
+
+				bs, err := formatting.Encode(formatting.CB58, b)
+				if err != nil {
+					return fmt.Errorf("unable to format UTXO: %w", err)
+				}
+
+				reply.Metadata.RewardUTXOs = append(reply.Metadata.RewardUTXOs, bs)
+			}
+		}
+	}
+
 	return nil
 }
 

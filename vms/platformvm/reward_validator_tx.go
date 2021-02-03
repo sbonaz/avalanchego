@@ -139,7 +139,17 @@ func (tx *UnsignedRewardValidatorTx) SemanticVerify(
 					fmt.Errorf("failed to put UTXO: %w", err),
 				}
 			}
+			if err := vm.putMarkedUTXO(onCommitDB, "refund", tx.TxID, utxo); err != nil {
+				return nil, nil, nil, nil, tempError{
+					fmt.Errorf("failed to put UTXO: %w", err),
+				}
+			}
 			if err := vm.putUTXO(onAbortDB, utxo); err != nil {
+				return nil, nil, nil, nil, tempError{
+					fmt.Errorf("failed to put UTXO: %w", err),
+				}
+			}
+			if err := vm.putMarkedUTXO(onAbortDB, "refund", tx.TxID, utxo); err != nil {
 				return nil, nil, nil, nil, tempError{
 					fmt.Errorf("failed to put UTXO: %w", err),
 				}
@@ -158,14 +168,20 @@ func (tx *UnsignedRewardValidatorTx) SemanticVerify(
 			if !ok {
 				return nil, nil, nil, nil, permError{errInvalidState}
 			}
-			if err := vm.putUTXO(onCommitDB, &avax.UTXO{
+			rewardUTXO := &avax.UTXO{
 				UTXOID: avax.UTXOID{
 					TxID:        tx.TxID,
 					OutputIndex: uint32(len(uStakerTx.Outs) + len(uStakerTx.Stake)),
 				},
 				Asset: avax.Asset{ID: vm.Ctx.AVAXAssetID},
 				Out:   out,
-			}); err != nil {
+			}
+			if err := vm.putMarkedUTXO(onCommitDB, "reward", tx.TxID, rewardUTXO); err != nil {
+				return nil, nil, nil, nil, tempError{
+					fmt.Errorf("failed to put UTXO: %w", err),
+				}
+			}
+			if err := vm.putUTXO(onCommitDB, rewardUTXO); err != nil {
 				return nil, nil, nil, nil, tempError{
 					fmt.Errorf("failed to create output: %w", err),
 				}
@@ -239,7 +255,17 @@ func (tx *UnsignedRewardValidatorTx) SemanticVerify(
 					fmt.Errorf("failed to put UTXO: %w", err),
 				}
 			}
+			if err := vm.putMarkedUTXO(onCommitDB, "refund", tx.TxID, utxo); err != nil {
+				return nil, nil, nil, nil, tempError{
+					fmt.Errorf("failed to put UTXO: %w", err),
+				}
+			}
 			if err := vm.putUTXO(onAbortDB, utxo); err != nil {
+				return nil, nil, nil, nil, tempError{
+					fmt.Errorf("failed to put UTXO: %w", err),
+				}
+			}
+			if err := vm.putMarkedUTXO(onAbortDB, "refund", tx.TxID, utxo); err != nil {
 				return nil, nil, nil, nil, tempError{
 					fmt.Errorf("failed to put UTXO: %w", err),
 				}
@@ -286,14 +312,20 @@ func (tx *UnsignedRewardValidatorTx) SemanticVerify(
 			if !ok {
 				return nil, nil, nil, nil, permError{errInvalidState}
 			}
-			if err := vm.putUTXO(onCommitDB, &avax.UTXO{
+			delegatorUTXO := &avax.UTXO{
 				UTXOID: avax.UTXOID{
 					TxID:        tx.TxID,
 					OutputIndex: uint32(len(uStakerTx.Outs) + len(uStakerTx.Stake)),
 				},
 				Asset: avax.Asset{ID: vm.Ctx.AVAXAssetID},
 				Out:   out,
-			}); err != nil {
+			}
+			if err := vm.putUTXO(onCommitDB, delegatorUTXO); err != nil {
+				return nil, nil, nil, nil, tempError{
+					fmt.Errorf("failed to put UTXO: %w", err),
+				}
+			}
+			if err := vm.putMarkedUTXO(onCommitDB, "reward", tx.TxID, delegatorUTXO); err != nil {
 				return nil, nil, nil, nil, tempError{
 					fmt.Errorf("failed to put UTXO: %w", err),
 				}
@@ -314,14 +346,20 @@ func (tx *UnsignedRewardValidatorTx) SemanticVerify(
 			if !ok {
 				return nil, nil, nil, nil, permError{errInvalidState}
 			}
-			if err := vm.putUTXO(onCommitDB, &avax.UTXO{
+			validatorUTXO := &avax.UTXO{
 				UTXOID: avax.UTXOID{
 					TxID:        tx.TxID,
 					OutputIndex: uint32(len(uStakerTx.Outs) + len(uStakerTx.Stake) + offset),
 				},
 				Asset: avax.Asset{ID: vm.Ctx.AVAXAssetID},
 				Out:   out,
-			}); err != nil {
+			}
+			if err := vm.putUTXO(onCommitDB, validatorUTXO); err != nil {
+				return nil, nil, nil, nil, tempError{
+					fmt.Errorf("failed to put UTXO: %w", err),
+				}
+			}
+			if err := vm.putMarkedUTXO(onCommitDB, "reward", tx.TxID, validatorUTXO); err != nil {
 				return nil, nil, nil, nil, tempError{
 					fmt.Errorf("failed to put UTXO: %w", err),
 				}

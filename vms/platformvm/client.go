@@ -12,6 +12,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/json"
 	cjson "github.com/ava-labs/avalanchego/utils/json"
 	"github.com/ava-labs/avalanchego/utils/rpc"
+	"github.com/ava-labs/avalanchego/vms/components/avax"
 )
 
 // Client ...
@@ -33,24 +34,55 @@ func (c *Client) GetHeight() (uint64, error) {
 	return uint64(res.Height), err
 }
 
-func (c *Client) GetBlock(height uint64) (Block, uint64, error) {
+func (c *Client) GetBlock(height uint64) (Block, uint64, ids.ID, []*avax.UTXO, []*avax.UTXO, error) {
 	res := GetBlockResponse{}
 	err := c.requester.SendRequest("getBlock", &GetBlockRequest{Height: json.Uint64(height)}, &res)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, ids.ID{}, nil, nil, err
 	}
 
 	b, err := formatting.Decode(formatting.CB58, res.Block)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, ids.ID{}, nil, nil, err
 	}
 
 	var block Block
 	if _, err := Codec.Unmarshal(b, &block); err != nil {
-		return nil, 0, err
+		return nil, 0, ids.ID{}, nil, nil, err
 	}
 
-	return block, uint64(res.Metadata.Timestamp), nil
+	// TODO: decode utxos
+	refundUtxos := make([]*avax.UTXO, len(res.Metadata.RefundUTXOs))
+	for i, sUTXO := range res.Metadata.RefundUTXOs {
+		b, err := formatting.Decode(formatting.CB58, sUTXO)
+		if err != nil {
+			return nil, 0, ids.ID{}, nil, nil, err
+		}
+
+		var utxo avax.UTXO
+		if _, err := Codec.Unmarshal(b, &utxo); err != nil {
+			return nil, 0, ids.ID{}, nil, nil, err
+		}
+
+		refundUtxos[i] = &utxo
+	}
+
+	rewardUtxos := make([]*avax.UTXO, len(res.Metadata.RewardUTXOs))
+	for i, sUTXO := range res.Metadata.RewardUTXOs {
+		b, err := formatting.Decode(formatting.CB58, sUTXO)
+		if err != nil {
+			return nil, 0, ids.ID{}, nil, nil, err
+		}
+
+		var utxo avax.UTXO
+		if _, err := Codec.Unmarshal(b, &utxo); err != nil {
+			return nil, 0, ids.ID{}, nil, nil, err
+		}
+
+		rewardUtxos[i] = &utxo
+	}
+
+	return block, uint64(res.Metadata.Timestamp), res.Metadata.RewardTx, refundUtxos, rewardUtxos, nil
 }
 
 // ExportKey returns the private key corresponding to [address] from [user]'s account

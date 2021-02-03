@@ -25,6 +25,7 @@ func NewArchive() (Archive, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating new state: %w", err)
 	}
+
 	return &archive{State: rawState}, nil
 }
 

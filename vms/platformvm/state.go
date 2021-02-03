@@ -85,6 +85,7 @@ func (vm *VM) getBlockHeight(db database.Database, height uint64) (ids.ID, error
 func (vm *VM) archiveBlock(db database.Database, block snowman.Block) error {
 
 	// TODO: handle time increment on proposal block of advance time tx
+	// -> need to get timestamp from parent block db
 	currentTime, err := vm.getTimestamp(db)
 	if err != nil {
 		return fmt.Errorf("unable to get current time: %w", err)
@@ -99,6 +100,59 @@ func (vm *VM) archiveBlock(db database.Database, block snowman.Block) error {
 	}
 
 	return nil
+}
+
+func (vm *VM) putMarkedUTXO(db database.Database, mark string, txID ids.ID, utxo *avax.UTXO) error {
+	// TODO: may be possible to get other ways
+	db = vm.ArchiveDB(db)
+	prefixDB := prefixdb.New([]byte(mark), db)
+	prefixDB2 := prefixdb.NewNested(txID[:], prefixDB)
+
+	utxoID := utxo.InputID()
+	utxoBytes, err := vm.codec.Marshal(codecVersion, utxo)
+	if err != nil {
+		return err
+	}
+	// need to persist here because will be removed from state as soon as spent
+	if err := prefixDB2.Put(utxoID[:], utxoBytes); err != nil {
+		return err
+	}
+
+	errs := wrappers.Errs{}
+	errs.Add(
+		prefixDB2.Close(),
+		prefixDB.Close(),
+		db.Close(),
+	)
+	return errs.Err
+}
+
+func (vm *VM) getMarkedUTXOs(db database.Database, mark string, txID ids.ID) ([]*avax.UTXO, error) {
+	db = vm.ArchiveDB(db)
+	prefixDB := prefixdb.New([]byte(mark), db)
+	prefixDB2 := prefixdb.NewNested(txID[:], prefixDB)
+
+	iter := prefixDB2.NewIterator()
+	defer iter.Release()
+
+	utxos := []*avax.UTXO{}
+	for iter.Next() {
+		var utxo avax.UTXO
+		if _, err := vm.codec.Unmarshal(iter.Value(), &utxo); err != nil {
+			return nil, err
+		}
+
+		utxos = append(utxos, &utxo)
+	}
+
+	errs := wrappers.Errs{}
+	errs.Add(
+		prefixDB2.Close(),
+		prefixDB.Close(),
+		db.Close(),
+	)
+
+	return utxos, errs.Err
 }
 
 // persist a tx
@@ -454,6 +508,7 @@ func (vm *VM) putUTXO(db database.Database, utxo *avax.UTXO) error {
 	if addressable, ok := utxo.Out.(avax.Addressable); ok {
 		// For each owner of this UTXO, add to list of UTXOs owned by that addr
 		for _, addrBytes := range addressable.Addresses() {
+			// TODO: put referencing Transaction (for /address/transactions)
 			if err := vm.putReferencingUTXO(db, addrBytes, utxoID); err != nil {
 				// We assume that the maximum size of a byte slice that
 				// can be stringified is at least the length of an address.
