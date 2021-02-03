@@ -9,6 +9,7 @@ import (
 	"github.com/ava-labs/avalanchego/api"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/formatting"
+	"github.com/ava-labs/avalanchego/utils/json"
 	cjson "github.com/ava-labs/avalanchego/utils/json"
 	"github.com/ava-labs/avalanchego/utils/rpc"
 )
@@ -30,6 +31,26 @@ func (c *Client) GetHeight() (uint64, error) {
 	res := &GetHeightResponse{}
 	err := c.requester.SendRequest("getHeight", struct{}{}, res)
 	return uint64(res.Height), err
+}
+
+func (c *Client) GetBlock(height uint64) (Block, uint64, error) {
+	res := GetBlockResponse{}
+	err := c.requester.SendRequest("getBlock", &GetBlockRequest{Height: json.Uint64(height)}, &res)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	b, err := formatting.Decode(formatting.CB58, res.Block)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var block Block
+	if _, err := Codec.Unmarshal(b, &block); err != nil {
+		return nil, 0, err
+	}
+
+	return block, uint64(res.Metadata.Timestamp), nil
 }
 
 // ExportKey returns the private key corresponding to [address] from [user]'s account

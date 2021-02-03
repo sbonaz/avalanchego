@@ -86,6 +86,10 @@ func (sb *StandardBlock) Verify() error {
 		}
 	}
 
+	if err := sb.vm.archiveBlock(sb.onAcceptDB, sb); err != nil {
+		return fmt.Errorf("unable to archive block at height %d: %w", sb.Height(), err)
+	}
+
 	if numFuncs := len(funcs); numFuncs == 1 {
 		sb.onAcceptFunc = funcs[0]
 	} else if numFuncs > 1 {

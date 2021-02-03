@@ -68,7 +68,7 @@ type GetBlockRequest struct {
 	// TODO: support lookup by hash
 }
 
-type GetBlockReply struct {
+type GetBlockResponse struct {
 	// TODO: change to Indexer
 	Metadata struct {
 		Timestamp json.Uint64 `json:"timestamp"`
@@ -76,12 +76,12 @@ type GetBlockReply struct {
 	Block string `json:"block"`
 }
 
-func (service *Service) GetBlock(r *http.Request, args *GetBlockRequest, reply *GetBlockReply) error {
+func (service *Service) GetBlock(r *http.Request, args *GetBlockRequest, reply *GetBlockResponse) error {
 	service.vm.SnowmanVM.Ctx.Log.Info("Platform: GetBlock called")
 
 	id, err := service.vm.getBlockHeight(service.vm.DB, uint64(args.Height))
 	if err != nil {
-		return fmt.Errorf("unable to get index: %w", err)
+		return fmt.Errorf("unable to find block at height %d: %w", args.Height, err)
 	}
 
 	b, err := service.vm.getBlock(id)

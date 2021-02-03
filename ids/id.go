@@ -47,9 +47,9 @@ func FromString(idStr string) (ID, error) {
 
 // FromUint64 attempts to convert a uint64 into an id
 func FromUint64(idUint64 uint64) (ID, error) {
-	bytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bytes, uint64(idUint64))
-	return ToID(bytes)
+	bytes := ID{}
+	binary.LittleEndian.PutUint64(bytes[:], uint64(idUint64))
+	return bytes, nil
 }
 
 // MarshalJSON ...

@@ -305,6 +305,11 @@ func (vm *VM) Initialize(
 		if err := vm.State.PutBlock(vm.DB, genesisBlock); err != nil {
 			return err
 		}
+
+		if err := vm.archiveBlock(vm.DB, genesisBlock); err != nil {
+			return fmt.Errorf("unable to archive block at height %d: %w", genesisBlock.Height(), err)
+		}
+
 		genesisBlock.onAcceptDB = versiondb.New(vm.DB)
 		if err := genesisBlock.CommonBlock.Accept(); err != nil {
 			return fmt.Errorf("error accepting genesis block: %w", err)
