@@ -73,6 +73,9 @@ type GetBlockResponse struct {
 	Metadata struct {
 		Timestamp json.Uint64 `json:"timestamp"`
 
+		GenesisUTXOs []string `json:"genesis_utxos"`
+		GenesisTxs   []string `json:"genesis_txs"`
+
 		// make by transaction
 		RefundUTXOs []string `json:"refund_utxos"`
 		RewardUTXOs []string `json:"reward_utxos"`
@@ -109,6 +112,36 @@ func (service *Service) GetBlock(r *http.Request, args *GetBlockRequest, reply *
 	}
 
 	reply.Metadata.Timestamp = json.Uint64(t.Unix())
+
+	if args.Height == 0 {
+		for _, utxo := range service.vm.Genesis.UTXOs {
+			b, err := service.vm.codec.Marshal(codecVersion, utxo)
+			if err != nil {
+				return fmt.Errorf("unable to marshal UTXO: %w", err)
+			}
+
+			bs, err := formatting.Encode(formatting.CB58, b)
+			if err != nil {
+				return fmt.Errorf("unable to format UTXO: %w", err)
+			}
+
+			reply.Metadata.GenesisUTXOs = append(reply.Metadata.GenesisUTXOs, bs)
+		}
+
+		for _, vdrTx := range service.vm.Genesis.Validators {
+			b, err := service.vm.codec.Marshal(codecVersion, vdrTx)
+			if err != nil {
+				return fmt.Errorf("unable to marshal UTXO: %w", err)
+			}
+
+			bs, err := formatting.Encode(formatting.CB58, b)
+			if err != nil {
+				return fmt.Errorf("unable to format UTXO: %w", err)
+			}
+
+			reply.Metadata.GenesisTxs = append(reply.Metadata.GenesisTxs, bs)
+		}
+	}
 
 	switch block := b.(type) {
 	case *ProposalBlock:

@@ -98,6 +98,7 @@ type VM struct {
 	*core.SnowmanVM
 
 	archive.Archive
+	*Genesis
 
 	// Node's validator manager
 	// Maps Subnets --> validators of the Subnet
@@ -225,6 +226,8 @@ func (vm *VM) Initialize(
 			return err
 		}
 
+		vm.Genesis = genesis
+
 		// Persist UTXOs that exist at genesis
 		for _, utxo := range genesis.UTXOs {
 			if err := vm.putUTXO(vm.DB, &utxo.UTXO); err != nil {
@@ -306,7 +309,7 @@ func (vm *VM) Initialize(
 			return err
 		}
 
-		if err := vm.archiveBlock(vm.DB, genesisBlock); err != nil {
+		if err := vm.archiveBlock(vm.DB, vm.DB, genesisBlock); err != nil {
 			return fmt.Errorf("unable to archive block at height %d: %w", genesisBlock.Height(), err)
 		}
 

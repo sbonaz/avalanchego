@@ -86,7 +86,7 @@ func (sb *StandardBlock) Verify() error {
 		}
 	}
 
-	if err := sb.vm.archiveBlock(sb.onAcceptDB, sb); err != nil {
+	if err := sb.vm.archiveBlock(sb.onAcceptDB, sb.onAcceptDB, sb); err != nil {
 		return fmt.Errorf("unable to archive block at height %d: %w", sb.Height(), err)
 	}
 

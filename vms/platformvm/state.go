@@ -82,11 +82,11 @@ func (vm *VM) getBlockHeight(db database.Database, height uint64) (ids.ID, error
 	return vm.Archive.GetID(db, key)
 }
 
-func (vm *VM) archiveBlock(db database.Database, block snowman.Block) error {
+func (vm *VM) archiveBlock(db database.Database, timestampDB database.Database, block snowman.Block) error {
 
 	// TODO: handle time increment on proposal block of advance time tx
 	// -> need to get timestamp from parent block db
-	currentTime, err := vm.getTimestamp(db)
+	currentTime, err := vm.getTimestamp(timestampDB)
 	if err != nil {
 		return fmt.Errorf("unable to get current time: %w", err)
 	}

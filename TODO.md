@@ -1,6 +1,6 @@
-* fix timestamps on proposal blocks for advance timstamp tx
-* expose unlocked stake + reward
-* add genesis UTXOs to block 0
-* return height in balance
-* determine if reward TxID is just the staker TxID (traditional tx ID checks
-  return `11111111111111111111111111111111LpoYY` and utxos are indexed with tx)?
+- [x] fix timestamps on proposal blocks for advance timstamp tx
+- [x] expose unlocked stake + reward
+- [x] add genesis UTXOs to block 0 (can load in Rosetta)
+- [ ] return height in balance
+- [ ] [IN ROSETTA] Put proposal transactions in accepted/rejected blocks instead of in proposal
+  (won't affect state until decision)

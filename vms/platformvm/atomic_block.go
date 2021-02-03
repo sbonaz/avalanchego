@@ -93,7 +93,7 @@ func (ab *AtomicBlock) Verify() error {
 		return fmt.Errorf("failed to put status of tx %s: %w", tx.ID(), err)
 	}
 
-	if err := ab.vm.archiveBlock(ab.onAcceptDB, ab); err != nil {
+	if err := ab.vm.archiveBlock(ab.onAcceptDB, ab.onAcceptDB, ab); err != nil {
 		return fmt.Errorf("unable to archive block at height %d: %w", ab.Height(), err)
 	}
 

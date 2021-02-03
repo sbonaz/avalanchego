@@ -155,7 +155,7 @@ func (pb *ProposalBlock) Verify() error {
 	if err := pb.vm.putStatus(pb.onCommitDB, txID, Committed); err != nil {
 		return fmt.Errorf("failed to put status of tx %s: %w", txID, err)
 	}
-	if err := pb.vm.archiveBlock(pb.onCommitDB, pb); err != nil {
+	if err := pb.vm.archiveBlock(pb.onCommitDB, pdb, pb); err != nil {
 		return fmt.Errorf("unable to archive block at height %d: %w", pb.Height(), err)
 	}
 
@@ -165,7 +165,7 @@ func (pb *ProposalBlock) Verify() error {
 	if err := pb.vm.putStatus(pb.onAbortDB, txID, Aborted); err != nil {
 		return fmt.Errorf("failed to put status of tx %s: %w", txID, err)
 	}
-	if err := pb.vm.archiveBlock(pb.onAbortDB, pb); err != nil {
+	if err := pb.vm.archiveBlock(pb.onAbortDB, pdb, pb); err != nil {
 		return fmt.Errorf("unable to archive block at height %d: %w", pb.Height(), err)
 	}
 

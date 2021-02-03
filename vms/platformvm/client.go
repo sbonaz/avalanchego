@@ -48,23 +48,23 @@ func initializeTx(version uint16, c codec.Manager, tx Tx) error {
 	return nil
 }
 
-func (c *Client) GetBlock(height uint64) (Block, uint64, []*avax.UTXO, []*avax.UTXO, error) {
+func (c *Client) GetBlock(height uint64) (Block, uint64, []*Tx, []*avax.UTXO, []*avax.UTXO, []*avax.UTXO, error) {
 	res := GetBlockResponse{}
 	err := c.requester.SendRequest("getBlock", &GetBlockRequest{Height: json.Uint64(height)}, &res)
 	if err != nil {
-		return nil, 0, nil, nil, err
+		return nil, 0, nil, nil, nil, nil, err
 	}
 
 	b, err := formatting.Decode(formatting.CB58, res.Block)
 	if err != nil {
-		return nil, 0, nil, nil, err
+		return nil, 0, nil, nil, nil, nil, err
 	}
 
 	var block Block
 	// ver, err := Codec.Unmarshal(b, &block)
 	_, err = Codec.Unmarshal(b, &block)
 	if err != nil {
-		return nil, 0, nil, nil, err
+		return nil, 0, nil, nil, nil, nil, err
 	}
 
 	// TODO: decode utxos
@@ -72,12 +72,12 @@ func (c *Client) GetBlock(height uint64) (Block, uint64, []*avax.UTXO, []*avax.U
 	for i, sUTXO := range res.Metadata.RefundUTXOs {
 		b, err := formatting.Decode(formatting.CB58, sUTXO)
 		if err != nil {
-			return nil, 0, nil, nil, err
+			return nil, 0, nil, nil, nil, nil, err
 		}
 
 		var utxo avax.UTXO
 		if _, err := Codec.Unmarshal(b, &utxo); err != nil {
-			return nil, 0, nil, nil, err
+			return nil, 0, nil, nil, nil, nil, err
 		}
 
 		refundUtxos[i] = &utxo
@@ -87,15 +87,46 @@ func (c *Client) GetBlock(height uint64) (Block, uint64, []*avax.UTXO, []*avax.U
 	for i, sUTXO := range res.Metadata.RewardUTXOs {
 		b, err := formatting.Decode(formatting.CB58, sUTXO)
 		if err != nil {
-			return nil, 0, nil, nil, err
+			return nil, 0, nil, nil, nil, nil, err
 		}
 
 		var utxo avax.UTXO
 		if _, err := Codec.Unmarshal(b, &utxo); err != nil {
-			return nil, 0, nil, nil, err
+			return nil, 0, nil, nil, nil, nil, err
 		}
 
 		rewardUtxos[i] = &utxo
+	}
+
+	genesisTxs := make([]*Tx, len(res.Metadata.GenesisTxs))
+	for i, tx := range res.Metadata.GenesisTxs {
+		b, err := formatting.Decode(formatting.CB58, tx)
+		if err != nil {
+			return nil, 0, nil, nil, nil, nil, err
+		}
+
+		var tx Tx
+		if _, err := Codec.Unmarshal(b, &tx); err != nil {
+			return nil, 0, nil, nil, nil, nil, err
+		}
+
+		initializeTx(codecVersion, Codec, tx)
+		genesisTxs[i] = &tx
+	}
+
+	genesisUtxos := make([]*avax.UTXO, len(res.Metadata.GenesisUTXOs))
+	for i, sUTXO := range res.Metadata.GenesisUTXOs {
+		b, err := formatting.Decode(formatting.CB58, sUTXO)
+		if err != nil {
+			return nil, 0, nil, nil, nil, nil, err
+		}
+
+		var utxo avax.UTXO
+		if _, err := Codec.Unmarshal(b, &utxo); err != nil {
+			return nil, 0, nil, nil, nil, nil, err
+		}
+
+		genesisUtxos[i] = &utxo
 	}
 
 	block.initialize(&VM{
@@ -114,7 +145,7 @@ func (c *Client) GetBlock(height uint64) (Block, uint64, []*avax.UTXO, []*avax.U
 	// 	initializeTx(ver, Codec, parsedBlock.Tx)
 	// }
 
-	return block, uint64(res.Metadata.Timestamp), refundUtxos, rewardUtxos, nil
+	return block, uint64(res.Metadata.Timestamp), genesisTxs, genesisUtxos, refundUtxos, rewardUtxos, nil
 }
 
 // ExportKey returns the private key corresponding to [address] from [user]'s account

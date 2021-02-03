@@ -37,7 +37,7 @@ func (c *Commit) Verify() error {
 
 	c.onAcceptDB, c.onAcceptFunc = parent.onCommit()
 
-	if err := c.vm.archiveBlock(c.onAcceptDB, c); err != nil {
+	if err := c.vm.archiveBlock(c.onAcceptDB, c.onAcceptDB, c); err != nil {
 		return fmt.Errorf("unable to archive block at height %d: %w", c.Height(), err)
 	}
 

@@ -37,7 +37,7 @@ func (a *Abort) Verify() error {
 
 	a.onAcceptDB, a.onAcceptFunc = parent.onAbort()
 
-	if err := a.vm.archiveBlock(a.onAcceptDB, a); err != nil {
+	if err := a.vm.archiveBlock(a.onAcceptDB, a.onAcceptDB, a); err != nil {
 		return fmt.Errorf("unable to archive block at height %d: %w", a.Height(), err)
 	}
 
