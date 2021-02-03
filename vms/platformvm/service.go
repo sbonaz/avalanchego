@@ -74,7 +74,6 @@ type GetBlockResponse struct {
 		Timestamp json.Uint64 `json:"timestamp"`
 
 		// make by transaction
-		RewardTx    ids.ID   `json:"reward_tx"`
 		RefundUTXOs []string `json:"refund_utxos"`
 		RewardUTXOs []string `json:"reward_utxos"`
 	} `json:"metadata"`
@@ -113,10 +112,10 @@ func (service *Service) GetBlock(r *http.Request, args *GetBlockRequest, reply *
 
 	switch block := b.(type) {
 	case *ProposalBlock:
+		service.vm.SnowmanVM.Ctx.Log.Info("Platform: GetBlock called (with tx %s)", block.Tx.ID().String())
 		switch castTx := block.Tx.UnsignedTx.(type) {
 		case *UnsignedRewardValidatorTx:
 			txID := castTx.TxID
-			reply.Metadata.RewardTx = txID
 			refundUtxos, err := service.vm.getMarkedUTXOs(service.vm.DB, "refund", txID)
 			if err != nil {
 				return fmt.Errorf("unable to get refund UTXOs: %w", err)

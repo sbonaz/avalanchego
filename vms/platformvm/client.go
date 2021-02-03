@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/api"
+	"github.com/ava-labs/avalanchego/codec"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/formatting"
 	"github.com/ava-labs/avalanchego/utils/json"
@@ -34,21 +35,36 @@ func (c *Client) GetHeight() (uint64, error) {
 	return uint64(res.Height), err
 }
 
-func (c *Client) GetBlock(height uint64) (Block, uint64, ids.ID, []*avax.UTXO, []*avax.UTXO, error) {
+func initializeTx(version uint16, c codec.Manager, tx Tx) error {
+	unsignedBytes, err := c.Marshal(version, &tx.UnsignedTx)
+	if err != nil {
+		return err
+	}
+	signedBytes, err := c.Marshal(version, &tx)
+	if err != nil {
+		return err
+	}
+	tx.Initialize(unsignedBytes, signedBytes)
+	return nil
+}
+
+func (c *Client) GetBlock(height uint64) (Block, uint64, []*avax.UTXO, []*avax.UTXO, error) {
 	res := GetBlockResponse{}
 	err := c.requester.SendRequest("getBlock", &GetBlockRequest{Height: json.Uint64(height)}, &res)
 	if err != nil {
-		return nil, 0, ids.ID{}, nil, nil, err
+		return nil, 0, nil, nil, err
 	}
 
 	b, err := formatting.Decode(formatting.CB58, res.Block)
 	if err != nil {
-		return nil, 0, ids.ID{}, nil, nil, err
+		return nil, 0, nil, nil, err
 	}
 
 	var block Block
-	if _, err := Codec.Unmarshal(b, &block); err != nil {
-		return nil, 0, ids.ID{}, nil, nil, err
+	// ver, err := Codec.Unmarshal(b, &block)
+	_, err = Codec.Unmarshal(b, &block)
+	if err != nil {
+		return nil, 0, nil, nil, err
 	}
 
 	// TODO: decode utxos
@@ -56,12 +72,12 @@ func (c *Client) GetBlock(height uint64) (Block, uint64, ids.ID, []*avax.UTXO, [
 	for i, sUTXO := range res.Metadata.RefundUTXOs {
 		b, err := formatting.Decode(formatting.CB58, sUTXO)
 		if err != nil {
-			return nil, 0, ids.ID{}, nil, nil, err
+			return nil, 0, nil, nil, err
 		}
 
 		var utxo avax.UTXO
 		if _, err := Codec.Unmarshal(b, &utxo); err != nil {
-			return nil, 0, ids.ID{}, nil, nil, err
+			return nil, 0, nil, nil, err
 		}
 
 		refundUtxos[i] = &utxo
@@ -71,18 +87,34 @@ func (c *Client) GetBlock(height uint64) (Block, uint64, ids.ID, []*avax.UTXO, [
 	for i, sUTXO := range res.Metadata.RewardUTXOs {
 		b, err := formatting.Decode(formatting.CB58, sUTXO)
 		if err != nil {
-			return nil, 0, ids.ID{}, nil, nil, err
+			return nil, 0, nil, nil, err
 		}
 
 		var utxo avax.UTXO
 		if _, err := Codec.Unmarshal(b, &utxo); err != nil {
-			return nil, 0, ids.ID{}, nil, nil, err
+			return nil, 0, nil, nil, err
 		}
 
 		rewardUtxos[i] = &utxo
 	}
 
-	return block, uint64(res.Metadata.Timestamp), res.Metadata.RewardTx, refundUtxos, rewardUtxos, nil
+	block.initialize(&VM{
+		codec: Codec,
+	}, b) // TODO: extract this out of VM, TODO: handle multiple codec versions (always uses platformvm `codecVersion`)
+
+	// TX based initialization (ortelisu does this)
+	// switch parsedBlock := block.(type) {
+	// case *ProposalBlock:
+	// 	initializeTx(ver, Codec, parsedBlock.Tx)
+	// case *StandardBlock:
+	// 	for _, tx := range parsedBlock.Txs {
+	// 		initializeTx(ver, Codec, *tx)
+	// 	}
+	// case *AtomicBlock:
+	// 	initializeTx(ver, Codec, parsedBlock.Tx)
+	// }
+
+	return block, uint64(res.Metadata.Timestamp), refundUtxos, rewardUtxos, nil
 }
 
 // ExportKey returns the private key corresponding to [address] from [user]'s account
