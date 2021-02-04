@@ -145,7 +145,6 @@ func (service *Service) GetBlock(r *http.Request, args *GetBlockRequest, reply *
 
 	switch block := b.(type) {
 	case *ProposalBlock:
-		service.vm.SnowmanVM.Ctx.Log.Info("Platform: GetBlock called (with tx %s)", block.Tx.ID().String())
 		switch castTx := block.Tx.UnsignedTx.(type) {
 		case *UnsignedRewardValidatorTx:
 			txID := castTx.TxID
